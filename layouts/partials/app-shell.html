@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="{{ .Site.LanguageCode }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="{{ .Site.Params.description }}">
+  <title>{{ .Site.Title }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260708-cognito">
+</head>
+<body data-initial-view="{{ .InitialView }}">
+  <div class="view-switcher" aria-label="Chuyá»ƒn giao diá»‡n">
+    <button class="switch-button" type="button" data-switch-view="user">
+      <i class="ti ti-user" aria-hidden="true"></i>
+      User Portal
+    </button>
+    <button class="switch-button" type="button" data-switch-view="admin">
+      <i class="ti ti-shield-lock" aria-hidden="true"></i>
+      Admin Console
+    </button>
+    <div class="session-controls" aria-label="Tráº¡ng thÃ¡i Ä‘Äƒng nháº­p">
+      <span class="session-chip" id="sessionChip">
+        <i class="ti ti-user-circle" aria-hidden="true"></i>
+        ChÆ°a Ä‘Äƒng nháº­p
+      </span>
+      <button class="session-button" id="loginButton" type="button">
+        <i class="ti ti-login-2" aria-hidden="true"></i>
+        ÄÄƒng nháº­p
+      </button>
+      <button class="session-button" id="logoutButton" type="button" hidden>
+        <i class="ti ti-logout-2" aria-hidden="true"></i>
+        ÄÄƒng xuáº¥t
+      </button>
+    </div>
+  </div>
+
+  <div class="auth-modal" id="authModal" hidden>
+    <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <button class="auth-close" id="closeAuthModal" type="button" aria-label="ÄÃ³ng Ä‘Äƒng nháº­p">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+      <p class="section-label">Amazon Cognito demo</p>
+      <h2 id="authTitle">ÄÄƒng nháº­p vÃ o há»‡ thá»‘ng</h2>
+      <p class="auth-desc">Chá»n vai trÃ² vÃ  dÃ¹ng tÃ i khoáº£n demo Ä‘á»ƒ xem luá»“ng User Portal hoáº·c Admin Console.</p>
+
+      <form class="login-form" id="loginForm">
+        <label class="field">
+          <span>Vai trÃ²</span>
+          <select id="loginRole" name="role">
+            <option value="user">User / Student</option>
+            <option value="admin">Admin / IT Staff</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input id="loginEmail" name="email" type="email" autocomplete="username" required>
+        </label>
+        <label class="field">
+          <span>Máº­t kháº©u</span>
+          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+        </label>
+        <button class="button button-primary" type="submit">
+          <i class="ti ti-shield-check" aria-hidden="true"></i>
+          ÄÄƒng nháº­p
+        </button>
+        <p class="form-status" id="loginStatus"></p>
+      </form>
+
+      <div class="demo-accounts">
+        <strong>TÃ i khoáº£n demo</strong>
+        <span>User: <code>student@campus.edu.vn</code> / <code>student123</code></span>
+        <span>Admin: <code>admin@campus.edu.vn</code> / <code>admin123</code></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-view" id="userView" data-app-view="user" {{ if eq .InitialView "admin" }}hidden{{ end }}>
+    <header class="navbar">
+      <a class="brand" href="{{ "/" | relURL }}" aria-label="Campus Support">
+        <span class="brand-logo">IT</span>
+        <span class="brand-copy">
+          <span>Campus Support</span>
+          <small>Helpdesk Portal</small>
+        </span>
+      </a>
+      <a class="button button-primary" href="#ticketForm">
+        <i class="ti ti-send" aria-hidden="true"></i>
+        Gá»­i yÃªu cáº§u
+      </a>
+    </header>
+
+    <main class="page-shell">
+      <section class="hero hero-user">
+        <div class="hero-copy">
+          <p class="eyebrow">Cá»•ng há»— trá»£ ká»¹ thuáº­t</p>
+          <h1>Gá»­i yÃªu cáº§u há»— trá»£ IT cho sinh viÃªn vÃ  nhÃ¢n viÃªn</h1>
+          <p>
+            Ghi nháº­n sá»± cá»‘ WiFi, tÃ i khoáº£n, pháº§n má»m hoáº·c thiáº¿t bá»‹ trong khuÃ´n viÃªn trÆ°á»ng.
+            Äá»™i há»— trá»£ sáº½ tiáº¿p nháº­n, phÃ¢n loáº¡i vÃ  cáº­p nháº­t tráº¡ng thÃ¡i xá»­ lÃ½.
+          </p>
+        </div>
+
+        <aside class="stat-card" aria-label="Thá»i gian pháº£n há»“i má»¥c tiÃªu">
+          <span>Thá»i gian pháº£n há»“i má»¥c tiÃªu</span>
+          <strong>24 giá»</strong>
+          <p>Ticket Ä‘Æ°á»£c lÆ°u trong trÃ¬nh duyá»‡t Ä‘á»ƒ admin cÃ³ thá»ƒ theo dÃµi khi demo.</p>
+        </aside>
+      </section>
+
+      <section class="portal-layout">
+        <div class="portal-main">
+          <form class="card ticket-form" id="ticketForm" novalidate>
+            <div class="section-heading">
+              <p class="section-label">YÃªu cáº§u má»›i</p>
+              <h2>ThÃ´ng tin sá»± cá»‘</h2>
+              <p>Nháº­p thÃ´ng tin cáº§n thiáº¿t Ä‘á»ƒ bá»™ pháº­n IT xÃ¡c Ä‘á»‹nh Ä‘Ãºng nhÃ³m xá»­ lÃ½.</p>
+            </div>
+
+            <div class="tab-bar" role="tablist" aria-label="Ticket form sections">
+              <button class="tab-button active" type="button" role="tab" aria-selected="true" data-ticket-tab="basic">
+                ThÃ´ng tin cÆ¡ báº£n
+              </button>
+              <button class="tab-button" type="button" role="tab" aria-selected="false" data-ticket-tab="attachment">
+                ÄÃ­nh kÃ¨m tá»‡p
+              </button>
+            </div>
+
+            <div class="tab-panel active" data-ticket-panel="basic">
+              <div class="form-grid">
+                <label class="field">
+                  <span>Há» tÃªn</span>
+                  <input id="fullName" name="fullName" autocomplete="name" placeholder="Nguyá»…n VÄƒn A" required minlength="2">
+                </label>
+
+                <label class="field">
+                  <span>Email</span>
+                  <input id="email" name="email" type="email" autocomplete="email" placeholder="student@example.edu.vn" required>
+                </label>
+
+                <label class="field">
+                  <span>NhÃ³m sá»± cá»‘</span>
+                  <select id="category" name="category" required>
+                    <option value="">Chá»n nhÃ³m sá»± cá»‘</option>
+                    <option value="WiFi">WiFi</option>
+                    <option value="Account">TÃ i khoáº£n</option>
+                    <option value="Software">Pháº§n má»m</option>
+                    <option value="Device">Thiáº¿t bá»‹</option>
+                    <option value="Other">KhÃ¡c</option>
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span>Má»©c Ä‘á»™ Æ°u tiÃªn</span>
+                  <select id="priority" name="priority" required>
+                    <option value="">Chá»n má»©c Ä‘á»™</option>
+                    <option value="Critical">Critical</option>
+                    <option value="High">High</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="field">
+                <span>Vá»‹ trÃ­ xáº£y ra sá»± cá»‘</span>
+                <input id="location" name="location" placeholder="VÃ­ dá»¥: PhÃ²ng lab B203, táº§ng 2, tÃ²a B" required minlength="3">
+              </label>
+
+              <label class="field">
+                <span>MÃ´ táº£ sá»± cá»‘</span>
+                <textarea id="description" name="description" placeholder="MÃ´ táº£ dáº¥u hiá»‡u lá»—i, thá»i Ä‘iá»ƒm báº¯t Ä‘áº§u, thiáº¿t bá»‹ Ä‘ang dÃ¹ng vÃ  áº£nh hÆ°á»Ÿng hiá»‡n táº¡i..." required minlength="12"></textarea>
+              </label>
+            </div>
+
+            <div class="tab-panel" data-ticket-panel="attachment">
+              <label class="field upload-field">
+                <span>File minh há»a</span>
+                <input id="attachment" name="attachment" type="file" accept="image/*,.pdf">
+                <div class="attachment-preview" id="attachmentPreview" hidden></div>
+              </label>
+              <p class="helper-text">
+                Há»— trá»£ PDF, PNG, JPG hoáº·c WebP tá»‘i Ä‘a 2 MB. Khi Lambda Ä‘Ã£ báº­t S3 attachment, tá»‡p sáº½ Ä‘Æ°á»£c lÆ°u vÃ o thÆ° má»¥c attachments/ trÃªn S3.
+              </p>
+            </div>
+
+            <button class="button button-primary submit-button" type="submit">
+              <i class="ti ti-send" aria-hidden="true"></i>
+              Gá»­i yÃªu cáº§u
+            </button>
+
+            <p class="form-status" id="formStatus" role="status" aria-live="polite"></p>
+            <div class="ticket-confirmation" id="ticketConfirmation" hidden>
+              <span id="createdTicketId"></span>
+            </div>
+          </form>
+
+          <section class="card ticket-lookup-card" aria-labelledby="ticketLookupTitle">
+            <div class="section-heading compact">
+              <p class="section-label">Theo dÃµi yÃªu cáº§u</p>
+              <h2 id="ticketLookupTitle">Tra cá»©u tráº¡ng thÃ¡i ticket</h2>
+              <p>Nháº­p mÃ£ ticket Ä‘Ã£ nháº­n sau khi gá»­i yÃªu cáº§u Ä‘á»ƒ xem tráº¡ng thÃ¡i xá»­ lÃ½ má»›i nháº¥t tá»« DynamoDB.</p>
+            </div>
+
+            <div class="lookup-form">
+              <label class="field">
+                <span>MÃ£ ticket</span>
+                <input id="ticketLookupInput" type="text" placeholder="VÃ­ dá»¥: IT-260707-N3HP" autocomplete="off">
+              </label>
+              <button class="button button-outline" id="ticketLookupButton" type="button">
+                <i class="ti ti-search" aria-hidden="true"></i>
+                Tra cá»©u
+              </button>
+            </div>
+
+            <p class="form-status" id="ticketLookupStatus" role="status" aria-live="polite"></p>
+
+            <div class="lookup-result" id="ticketLookupResult" hidden>
+              <div>
+                <span>MÃ£ ticket</span>
+                <strong id="lookupTicketId">--</strong>
+              </div>
+              <div>
+                <span>Tráº¡ng thÃ¡i</span>
+                <strong id="lookupTicketStatus">--</strong>
+              </div>
+              <div>
+                <span>NhÃ³m</span>
+                <strong id="lookupTicketCategory">--</strong>
+              </div>
+              <div>
+                <span>Æ¯u tiÃªn</span>
+                <strong id="lookupTicketPriority">--</strong>
+              </div>
+              <div>
+                <span>Cáº­p nháº­t</span>
+                <strong id="lookupTicketUpdated">--</strong>
+              </div>
+              <div class="lookup-wide">
+                <span>Ghi chÃº tá»« IT</span>
+                <strong id="lookupTicketNote">ChÆ°a cÃ³ ghi chÃº xá»­ lÃ½.</strong>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <aside class="portal-sidebar">
+          <section class="card side-card">
+            <div class="section-heading compact">
+              <p class="section-label">Gá»£i Ã½</p>
+              <h2>ThÃ´ng tin nÃªn cÃ³</h2>
+            </div>
+
+            <div class="tip-list">
+              <div class="tip-item">
+                <span class="tip-icon"><i class="ti ti-map-pin" aria-hidden="true"></i></span>
+                <p>Vá»‹ trÃ­ cá»¥ thá»ƒ: phÃ²ng há»c, táº§ng, tÃ²a nhÃ  hoáº·c khu vá»±c gáº·p lá»—i.</p>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon"><i class="ti ti-clock" aria-hidden="true"></i></span>
+                <p>Thá»i Ä‘iá»ƒm báº¯t Ä‘áº§u vÃ  táº§n suáº¥t xáº£y ra sá»± cá»‘.</p>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon"><i class="ti ti-device-laptop" aria-hidden="true"></i></span>
+                <p>Thiáº¿t bá»‹, tÃ i khoáº£n hoáº·c pháº§n má»m Ä‘ang bá»‹ áº£nh hÆ°á»Ÿng.</p>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon"><i class="ti ti-message-report" aria-hidden="true"></i></span>
+                <p>ThÃ´ng bÃ¡o lá»—i, áº£nh chá»¥p mÃ n hÃ¬nh hoáº·c bÆ°á»›c Ä‘Ã£ thá»­ Ä‘á»ƒ kháº¯c phá»¥c.</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="card side-card">
+            <div class="section-heading compact">
+              <p class="section-label">Æ¯u tiÃªn</p>
+              <h2>HÆ°á»›ng dáº«n má»©c Ä‘á»™</h2>
+            </div>
+
+            <div class="priority-guide">
+              <div>
+                <span class="badge priority-critical">Critical</span>
+                <p>Ngá»«ng hoáº¡t Ä‘á»™ng nghiÃªm trá»ng, áº£nh hÆ°á»Ÿng nhiá»u ngÆ°á»i.</p>
+              </div>
+              <div>
+                <span class="badge priority-high">High</span>
+                <p>Cáº§n xá»­ lÃ½ sá»›m, áº£nh hÆ°á»Ÿng há»c táº­p hoáº·c cÃ´ng viá»‡c chÃ­nh.</p>
+              </div>
+              <div>
+                <span class="badge priority-medium">Medium</span>
+                <p>CÃ³ cÃ¡ch táº¡m thá»i, váº«n cáº§n IT kiá»ƒm tra.</p>
+              </div>
+              <div>
+                <span class="badge priority-low">Low</span>
+                <p>YÃªu cáº§u thÃ´ng thÆ°á»ng, khÃ´ng cáº§n xá»­ lÃ½ gáº¥p.</p>
+              </div>
+            </div>
+          </section>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div class="app-view" id="adminView" data-app-view="admin" {{ if ne .InitialView "admin" }}hidden{{ end }}>
+    <header class="navbar">
+      <a class="brand" href="{{ "/" | relURL }}" aria-label="Campus Support">
+        <span class="brand-logo">IT</span>
+        <span class="brand-copy">
+          <span>Campus Support</span>
+          <small>Admin Console</small>
+        </span>
+      </a>
+      <nav class="nav-actions" aria-label="Admin navigation">
+        <button class="button button-outline" type="button" data-switch-view="user">
+          User Portal
+        </button>
+        <button class="button button-primary" type="button" data-switch-view="admin">
+          Admin Console
+        </button>
+      </nav>
+    </header>
+
+    <main class="page-shell admin-shell">
+      <section class="metric-grid" aria-label="Ticket metrics">
+        <article class="metric-card">
+          <div class="metric-head">
+            <i class="ti ti-ticket" aria-hidden="true"></i>
+            <span>Tá»•ng ticket</span>
+          </div>
+          <strong id="totalCount">0</strong>
+          <small>Táº¥t cáº£ yÃªu cáº§u Ä‘Ã£ ghi nháº­n</small>
+        </article>
+
+        <article class="metric-card metric-orange">
+          <div class="metric-head">
+            <i class="ti ti-progress" aria-hidden="true"></i>
+            <span>Äang xá»­ lÃ½</span>
+          </div>
+          <strong id="openCount">0</strong>
+          <small>ChÆ°a Ä‘Ã³ng ticket</small>
+        </article>
+
+        <article class="metric-card metric-red">
+          <div class="metric-head">
+            <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+            <span>Æ¯u tiÃªn cao</span>
+          </div>
+          <strong id="highCount">0</strong>
+          <small>Critical vÃ  High</small>
+        </article>
+
+        <article class="metric-card metric-green">
+          <div class="metric-head">
+            <i class="ti ti-circle-check" aria-hidden="true"></i>
+            <span>ÄÃ£ giáº£i quyáº¿t</span>
+          </div>
+          <strong id="resolvedCount">0</strong>
+          <small>Ticket Ä‘Ã£ hoÃ n thÃ nh</small>
+        </article>
+      </section>
+
+      <section class="card admin-panel" id="dashboard">
+        <div class="panel-header">
+          <div class="section-heading">
+            <p class="section-label">Admin Console</p>
+            <h2>Danh sÃ¡ch ticket</h2>
+            <p>Lá»c, xem chi tiáº¿t vÃ  cáº­p nháº­t tráº¡ng thÃ¡i xá»­ lÃ½ yÃªu cáº§u há»— trá»£.</p>
+          </div>
+
+          <div class="panel-actions">
+            <button class="button button-outline" id="refreshTickets" type="button">
+              <i class="ti ti-refresh" aria-hidden="true"></i>
+              LÃ m má»›i
+            </button>
+            <button class="button button-primary" id="seedData" type="button">
+              <i class="ti ti-database-plus" aria-hidden="true"></i>
+              Táº¡o dá»¯ liá»‡u máº«u
+            </button>
+            <button class="button button-danger" id="clearData" type="button">
+              <i class="ti ti-trash" aria-hidden="true"></i>
+              Xóa cache
+            </button>
+          </div>
+        </div>
+
+        <p class="admin-status" id="adminStatus" role="status" aria-live="polite"></p>
+        <div class="sync-alert" id="storageStatus">Äang kiá»ƒm tra Ä‘á»“ng bá»™ dá»¯ liá»‡u...</div>
+
+        <div class="filter-grid" aria-label="Bá»™ lá»c ticket">
+          <label class="field search-field">
+            <span>TÃ¬m kiáº¿m</span>
+            <span class="input-icon">
+              <i class="ti ti-search" aria-hidden="true"></i>
+              <input id="ticketSearch" type="search" placeholder="MÃ£ ticket, tÃªn, email hoáº·c mÃ´ táº£">
+            </span>
+          </label>
+
+          <label class="field">
+            <span>Tráº¡ng thÃ¡i</span>
+            <select id="statusFilter">
+              <option value="all">Táº¥t cáº£</option>
+              <option value="Open">Má»›i</option>
+              <option value="In Progress">Äang xá»­ lÃ½</option>
+              <option value="Resolved">ÄÃ£ giáº£i quyáº¿t</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Æ¯u tiÃªn</span>
+            <select id="priorityFilter">
+              <option value="all">Táº¥t cáº£</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>NhÃ³m</span>
+            <select id="categoryFilter">
+              <option value="all">Táº¥t cáº£</option>
+              <option value="WiFi">WiFi</option>
+              <option value="Account">TÃ i khoáº£n</option>
+              <option value="Software">Pháº§n má»m</option>
+              <option value="Device">Thiáº¿t bá»‹</option>
+              <option value="Other">KhÃ¡c</option>
+            </select>
+          </label>
+
+          <button class="button button-outline reset-filter" id="resetFilters" type="button">
+            Reset
+          </button>
+        </div>
+
+        <p class="filter-summary" id="filterSummary">Hiá»ƒn thá»‹ 0 / 0 ticket</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket ID</th>
+                <th>Tá»‡p</th>
+                <th>NgÆ°á»i gá»­i</th>
+                <th>NhÃ³m</th>
+                <th>Æ¯u tiÃªn</th>
+                <th>Tráº¡ng thÃ¡i</th>
+                <th>Thá»i gian</th>
+                <th>Chi tiáº¿t</th>
+                <th>Cáº­p nháº­t</th>
+              </tr>
+            </thead>
+            <tbody id="ticketsTable"></tbody>
+          </table>
+        </div>
+
+        <aside class="ticket-detail-panel" id="ticketDetailPanel" hidden>
+          <div class="detail-header">
+            <div>
+              <p class="section-label">Chi tiáº¿t ticket</p>
+              <h3 id="detailTicketId">Chá»n má»™t ticket</h3>
+            </div>
+            <button class="button button-outline" id="closeTicketDetail" type="button">ÄÃ³ng</button>
+          </div>
+
+          <dl class="detail-grid">
+            <div>
+              <dt>NgÆ°á»i gá»­i</dt>
+              <dd id="detailRequester">--</dd>
+            </div>
+            <div>
+              <dt>Email</dt>
+              <dd id="detailEmail">--</dd>
+            </div>
+            <div>
+              <dt>NhÃ³m</dt>
+              <dd id="detailCategory">--</dd>
+            </div>
+            <div>
+              <dt>Æ¯u tiÃªn</dt>
+              <dd id="detailPriority">--</dd>
+            </div>
+            <div>
+              <dt>Tráº¡ng thÃ¡i</dt>
+              <dd id="detailStatus">--</dd>
+            </div>
+            <div>
+              <dt>Thá»i gian táº¡o</dt>
+              <dd id="detailCreated">--</dd>
+            </div>
+            <div class="detail-wide">
+              <dt>Vá»‹ trÃ­</dt>
+              <dd id="detailLocation">--</dd>
+            </div>
+          </dl>
+
+          <div class="detail-block">
+            <h4>MÃ´ táº£ tá»« user</h4>
+            <p id="detailDescription">--</p>
+          </div>
+
+          <div class="detail-block attachment-detail" id="detailAttachmentBlock" hidden>
+            <h4>Tá»‡p Ä‘Ã­nh kÃ¨m</h4>
+            <a id="detailAttachmentLink" href="#" target="_blank" rel="noopener noreferrer">
+              <i class="ti ti-paperclip" aria-hidden="true"></i>
+              <span id="detailAttachmentName">--</span>
+            </a>
+            <p id="detailAttachmentMeta"></p>
+          </div>
+
+          <div class="detail-status-actions" aria-label="Cáº­p nháº­t tráº¡ng thÃ¡i xá»­ lÃ½">
+            <span>Tráº¡ng thÃ¡i xá»­ lÃ½</span>
+            <div>
+              <button class="button button-outline" id="markOpen" type="button">
+                Chuyá»ƒn vá» Má»›i
+              </button>
+              <button class="button button-outline" id="markInProgress" type="button">
+                ÄÃ¡nh dáº¥u Äang xá»­ lÃ½
+              </button>
+              <button class="button button-primary" id="markResolved" type="button">
+                ÄÃ¡nh dáº¥u ÄÃ£ giáº£i quyáº¿t
+              </button>
+            </div>
+          </div>
+
+          <label class="field resolution-field">
+            <span>Ghi chÃº xá»­ lÃ½</span>
+            <textarea id="resolutionNote" placeholder="Ghi láº¡i viá»‡c Ä‘Ã£ kiá»ƒm tra, Ä‘Ã£ sá»­a hoáº·c Ä‘Ã£ pháº£n há»“i cho user..."></textarea>
+          </label>
+
+          <div class="detail-actions">
+            <button class="button button-primary" id="saveResolutionNote" type="button">
+              LÆ°u ghi chÃº
+            </button>
+            <span id="detailUpdatedAt"></span>
+          </div>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <script src="{{ "js/config.js" | relURL }}?v=20260708-amplify"></script>
+  <script src="{{ "js/app.js" | relURL }}?v=20260708-amplify"></script>
+</body>
+</html>
+

@@ -1,0 +1,8 @@
+baseURL = "/"
+languageCode = "vi-vn"
+title = "Campus IT Support Ticket Portal"
+disableKinds = ["taxonomy", "term"]
+relativeURLs = true
+
+[params]
+  description = "Campus IT support ticket portal for submitting and managing helpdesk requests."
