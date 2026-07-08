@@ -1,16 +1,49 @@
 # Campus IT Support Ticket Portal
 
-Demo này là một project web khác với form đăng ký sự kiện. Use-case là hệ thống helpdesk nhỏ cho trường học, câu lạc bộ hoặc văn phòng: người dùng gửi lỗi IT, admin xem ticket và cập nhật trạng thái xử lý.
+Campus IT Support Ticket Portal là demo helpdesk serverless cho môi trường trường học, câu lạc bộ hoặc văn phòng nhỏ. Người dùng gửi yêu cầu hỗ trợ IT, admin xem danh sách ticket, cập nhật trạng thái xử lý và ghi chú phản hồi.
+
+## Tính năng chính
+
+- User Portal để tạo ticket hỗ trợ IT.
+- Admin Console để lọc, xem chi tiết và cập nhật trạng thái ticket.
+- Tra cứu ticket bằng mã ticket.
+- Upload file minh họa dạng PDF, PNG, JPG hoặc WebP.
+- Dashboard đếm tổng ticket, ticket đang xử lý, ticket ưu tiên cao và ticket đã giải quyết.
+- Runtime config riêng cho API Gateway và Cognito, phù hợp deploy bằng AWS Amplify.
 
 ## AWS services
 
-- S3: host static website được build từ Hugo.
-- API Gateway: nhận request tạo ticket và cập nhật trạng thái.
-- Lambda: validate dữ liệu, tạo mã ticket, xử lý business logic.
-- DynamoDB: lưu ticket theo `ticketId`, email, category, priority, status.
-- CloudWatch: xem log Lambda, theo dõi lỗi và request.
+Project hiện dùng hoặc đã chuẩn bị dùng các dịch vụ AWS sau:
 
-## Cách chạy local
+- AWS Amplify Hosting: host frontend Hugo và tự động build/deploy từ GitHub.
+- API Gateway: nhận request từ frontend.
+- AWS Lambda: xử lý logic tạo, xem và cập nhật ticket.
+- Amazon DynamoDB: lưu ticket theo `ticketId`.
+- Amazon S3: lưu file đính kèm.
+- Amazon CloudWatch: theo dõi log Lambda/API.
+- Amazon Cognito: chuẩn bị dùng cho đăng nhập và phân quyền User/Admin.
+- Amazon Route 53: chuẩn bị dùng cho domain riêng.
+
+## Cấu trúc project
+
+```text
+.
+├── amplify.yml                         # Build settings cho Amplify Hosting
+├── aws/lambda/CampusSupportTicketService
+│   └── index.mjs                       # Lambda handler cho ticket API
+├── content/                            # Hugo content pages
+├── docs/
+│   └── amplify-deploy.md               # Hướng dẫn deploy Amplify
+├── layouts/                            # Hugo templates
+├── scripts/
+│   └── write-runtime-config.mjs        # Tạo static/js/config.js từ env vars
+├── static/css/styles.css               # UI styles
+├── static/js/app.js                    # Frontend logic
+├── static/js/config.js                 # Runtime config local mặc định
+└── hugo.toml                           # Hugo config
+```
+
+## Chạy local
 
 ```powershell
 hugo server
@@ -22,39 +55,66 @@ Sau đó mở:
 http://localhost:1313/
 ```
 
-## Build static site
+## Build local
 
 ```powershell
-hugo
+node scripts/write-runtime-config.mjs
+hugo --minify
 ```
 
-Output nằm trong thư mục `public/`. Đây là thư mục có thể upload lên S3 static website hosting.
+Output nằm trong thư mục `public/`. Thư mục này được ignore vì Amplify sẽ tự build lại khi deploy.
 
-## Chức năng demo
+## Deploy frontend bằng Amplify
 
-- Tạo ticket hỗ trợ IT.
-- Chọn nhóm sự cố: WiFi, tài khoản, phần mềm, thiết bị, khác.
-- Chọn mức độ ưu tiên: thấp, trung bình, cao.
-- Dashboard đếm tổng ticket, ticket đang xử lý, ticket ưu tiên cao.
-- Admin đổi trạng thái: Open, In Progress, Resolved.
-- Tạo dữ liệu mẫu và xóa dữ liệu demo.
-
-Trong demo local, dữ liệu được lưu bằng `localStorage`. Khi triển khai AWS thật, phần tạo/cập nhật ticket trong `static/js/app.js` sẽ được thay bằng `fetch()` đến API Gateway.
-
-## Mapping sang AWS thật
+1. Push source lên GitHub.
+2. Vào AWS Amplify -> Create new app -> Host web app.
+3. Chọn repository và branch `main`.
+4. Amplify sẽ đọc `amplify.yml`.
+5. Thêm environment variables:
 
 ```text
-User -> S3 Static Website -> API Gateway -> Lambda -> DynamoDB
-                                      |
-                                      v
-                                CloudWatch Logs
+API_BASE_URL=https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com
+COGNITO_ENABLED=false
+COGNITO_DOMAIN=
+COGNITO_CLIENT_ID=
+COGNITO_REDIRECT_URI=
+COGNITO_LOGOUT_URI=
 ```
 
-## Vì sao project này hợp nội quy
+6. Save and deploy.
 
-- Là web app thực tế, không trùng kiểu form đăng ký sự kiện phổ biến.
-- Dùng ít nhất 4 dịch vụ AWS chính.
-- Có kiến trúc rõ ràng, dễ vẽ sơ đồ.
-- Có workflow end-to-end: tạo ticket, lưu dữ liệu, cập nhật trạng thái.
-- Có phần monitoring bằng CloudWatch.
-- Dễ viết workshop step-by-step và cleanup.
+Chi tiết xem thêm: `docs/amplify-deploy.md`.
+
+## Luồng kiến trúc
+
+```text
+User Browser
+  -> Amplify Hosting
+  -> API Gateway
+  -> Lambda
+  -> DynamoDB
+
+Attachment upload:
+  Lambda -> S3
+
+Monitoring:
+  Lambda/API Gateway -> CloudWatch Logs
+```
+
+Khi bật Cognito thật:
+
+```text
+User Browser
+  -> Cognito Hosted UI
+  -> API Gateway JWT Authorizer
+  -> Lambda
+```
+
+## Tài khoản demo hiện tại
+
+```text
+User:  student@campus.edu.vn / student123
+Admin: admin@campus.edu.vn   / admin123
+```
+
+Các tài khoản này chỉ phục vụ demo frontend khi `COGNITO_ENABLED=false`.

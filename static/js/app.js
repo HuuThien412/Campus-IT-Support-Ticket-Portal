@@ -84,9 +84,9 @@ const fullNameInput = document.querySelector("#fullName");
 const requesterEmailInput = document.querySelector("#email");
 
 const STATUS_LABELS = {
-  Open: "Má»›i",
-  "In Progress": "Äang xá»­ lÃ½",
-  Resolved: "ÄÃ£ giáº£i quyáº¿t"
+  Open: "Mới",
+  "In Progress": "Đang xử lý",
+  Resolved: "Đã giải quyết"
 };
 
 let selectedTicketId = null;
@@ -96,7 +96,7 @@ let ticketCache = [];
 const DEMO_ACCOUNTS = {
   user: {
     role: "user",
-    name: "Nguyá»…n VÄƒn A",
+    name: "Nguyễn Văn A",
     email: "student@campus.edu.vn",
     password: "student123",
     label: "User / Student"
@@ -354,7 +354,7 @@ function renderSession() {
   sessionChip.classList.remove("is-user", "is-admin");
 
   if (!session) {
-    sessionChip.innerHTML = '<i class="ti ti-user-circle" aria-hidden="true"></i> ChÆ°a Ä‘Äƒng nháº­p';
+    sessionChip.innerHTML = '<i class="ti ti-user-circle" aria-hidden="true"></i> Chưa đăng nhập';
     loginButton.hidden = false;
     logoutButton.hidden = true;
     return;
@@ -470,11 +470,11 @@ function validateAttachment(file) {
   const hasAllowedExtension = /\.(pdf|png|jpe?g|webp)$/i.test(file.name);
 
   if (!hasAllowedType && !hasAllowedExtension) {
-    throw new Error("Chá»‰ há»— trá»£ tá»‡p PDF, PNG, JPG hoáº·c WebP.");
+    throw new Error("Chỉ hỗ trợ tệp PDF, PNG, JPG hoặc WebP.");
   }
 
   if (file.size > MAX_ATTACHMENT_SIZE) {
-    throw new Error(`Tá»‡p Ä‘Ã­nh kÃ¨m tá»‘i Ä‘a ${formatBytes(MAX_ATTACHMENT_SIZE)}.`);
+    throw new Error(`Tệp đính kèm tối đa ${formatBytes(MAX_ATTACHMENT_SIZE)}.`);
   }
 
   return file;
@@ -508,7 +508,7 @@ function readAttachmentFile(file) {
       });
     };
 
-    reader.onerror = () => reject(new Error("KhÃ´ng thá»ƒ Ä‘á»c tá»‡p Ä‘Ã­nh kÃ¨m."));
+    reader.onerror = () => reject(new Error("Không thể đọc tệp đính kèm."));
     reader.readAsDataURL(file);
   });
 }
@@ -582,7 +582,7 @@ function createTicket(payload) {
   return {
     ok: true,
     ticketId: record.id,
-    message: `ÄÃ£ táº¡o ticket ${record.id}. Vui lÃ²ng lÆ°u láº¡i mÃ£ nÃ y Ä‘á»ƒ tiá»‡n theo dÃµi.`
+    message: `Đã tạo ticket ${record.id}. Vui lòng lưu lại mã này để tiện theo dõi.`
   };
 }
 
@@ -637,7 +637,7 @@ async function fetchTicketsFromApi(options = {}) {
     updateStorageStatus();
 
     if (options.showStatus) {
-      setStatus(adminStatusEl, "ÄÃ£ Ä‘á»“ng bá»™ danh sÃ¡ch ticket tá»« DynamoDB.", "success");
+      setStatus(adminStatusEl, "Đã đồng bộ danh sách ticket từ DynamoDB.", "success");
     }
 
     return getTickets();
@@ -645,7 +645,7 @@ async function fetchTicketsFromApi(options = {}) {
     console.error(error);
 
     if (options.showStatus) {
-      setStatus(adminStatusEl, `KhÃ´ng thá»ƒ táº£i ticket tá»« AWS API: ${error.message}`, "error");
+      setStatus(adminStatusEl, `Không thể tải ticket từ AWS API: ${error.message}`, "error");
     }
 
     renderTickets();
@@ -678,7 +678,7 @@ function renderTicketLookupResult(ticket) {
         : "--";
   }
   if (lookupTicketNote) {
-    lookupTicketNote.textContent = ticket.resolutionNote?.trim() || "ChÆ°a cÃ³ ghi chÃº xá»­ lÃ½.";
+    lookupTicketNote.textContent = ticket.resolutionNote?.trim() || "Chưa có ghi chú xử lý.";
   }
 
   ticketLookupResult.hidden = false;
@@ -695,7 +695,7 @@ async function lookupTicketByCode() {
     if (ticketLookupResult) {
       ticketLookupResult.hidden = true;
     }
-    setStatus(ticketLookupStatus, "Nháº­p mÃ£ ticket Ä‘á»ƒ tra cá»©u tráº¡ng thÃ¡i.", "error");
+    setStatus(ticketLookupStatus, "Nhập mã ticket để tra cứu trạng thái.", "error");
     ticketLookupInput.focus();
     return;
   }
@@ -704,7 +704,7 @@ async function lookupTicketByCode() {
     ticketLookupButton.disabled = true;
   }
 
-  setStatus(ticketLookupStatus, "Äang tra cá»©u ticket tá»« DynamoDB...", "");
+  setStatus(ticketLookupStatus, "Đang tra cứu ticket từ DynamoDB...", "");
 
   try {
     let ticket = null;
@@ -725,12 +725,12 @@ async function lookupTicketByCode() {
       if (ticketLookupResult) {
         ticketLookupResult.hidden = true;
       }
-      setStatus(ticketLookupStatus, `KhÃ´ng tÃ¬m tháº¥y ticket ${lookupCode}. Kiá»ƒm tra láº¡i mÃ£ Ä‘Ã£ lÆ°u.`, "error");
+      setStatus(ticketLookupStatus, `Không tìm thấy ticket ${lookupCode}. Kiểm tra lại mã đã lưu.`, "error");
       return;
     }
 
     renderTicketLookupResult(ticket);
-    setStatus(ticketLookupStatus, `ÄÃ£ tÃ¬m tháº¥y ticket ${lookupCode}.`, "success");
+    setStatus(ticketLookupStatus, `Đã tìm thấy ticket ${lookupCode}.`, "success");
   } catch (error) {
     console.error(error);
 
@@ -738,7 +738,7 @@ async function lookupTicketByCode() {
       ticketLookupResult.hidden = true;
     }
 
-    setStatus(ticketLookupStatus, `KhÃ´ng thá»ƒ tra cá»©u ticket: ${error.message}`, "error");
+    setStatus(ticketLookupStatus, `Không thể tra cứu ticket: ${error.message}`, "error");
   } finally {
     if (ticketLookupButton) {
       ticketLookupButton.disabled = false;
@@ -768,7 +768,7 @@ async function createTicketRemote(payload) {
   return {
     ok: true,
     ticketId: ticket.id,
-    message: `ÄÃ£ táº¡o ticket ${ticket.id} trÃªn AWS. Vui lÃ²ng lÆ°u láº¡i mÃ£ nÃ y Ä‘á»ƒ tiá»‡n theo dÃµi.`
+    message: `Đã tạo ticket ${ticket.id} trên AWS. Vui lòng lưu lại mã này để tiện theo dõi.`
   };
 }
 
@@ -807,7 +807,7 @@ function priorityClass(value) {
 }
 
 function statusLabel(value) {
-  return STATUS_LABELS[value] || value || "Má»›i";
+  return STATUS_LABELS[value] || value || "Mới";
 }
 
 function statusOption(currentStatus, value) {
@@ -847,10 +847,10 @@ function renderAttachmentCell(ticket) {
   const attachment = ticket.attachment;
 
   if (!attachment?.url) {
-    return '<span class="muted-cell">KhÃ´ng</span>';
+    return '<span class="muted-cell">Không</span>';
   }
 
-  const name = attachment.fileName || "Tá»‡p";
+  const name = attachment.fileName || "Tệp";
 
   return `
     <a class="attachment-link" href="${escapeHtml(attachment.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(name)}">
@@ -883,18 +883,18 @@ function renderTickets() {
     resolvedCount.textContent = tickets.filter((ticket) => ticket.status === "Resolved").length;
   }
   if (filterSummary) {
-    filterSummary.textContent = `Hiá»ƒn thá»‹ ${filteredTickets.length} / ${tickets.length} ticket`;
+    filterSummary.textContent = `Hiển thị ${filteredTickets.length} / ${tickets.length} ticket`;
   }
 
   updateStorageStatus();
 
   if (!tickets.length) {
-    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">ChÆ°a cÃ³ ticket há»— trá»£.</td></tr>';
+    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">Chưa có ticket hỗ trợ.</td></tr>';
     return;
   }
 
   if (!filteredTickets.length) {
-    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">KhÃ´ng cÃ³ ticket nÃ o khá»›p bá»™ lá»c hiá»‡n táº¡i.</td></tr>';
+    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">Không có ticket nào khớp bộ lọc hiện tại.</td></tr>';
     return;
   }
 
@@ -913,11 +913,11 @@ function renderTickets() {
       <td>
         <button class="button button-outline details-button" type="button" data-detail-id="${escapeHtml(ticket.id)}">
           <i class="ti ti-eye" aria-hidden="true"></i>
-          Chi tiáº¿t
+          Chi tiết
         </button>
       </td>
       <td>
-        <select class="status-select" data-ticket-id="${escapeHtml(ticket.id)}" aria-label="Cáº­p nháº­t tráº¡ng thÃ¡i ticket ${escapeHtml(ticket.id)}">
+        <select class="status-select" data-ticket-id="${escapeHtml(ticket.id)}" aria-label="Cập nhật trạng thái ticket ${escapeHtml(ticket.id)}">
           ${statusOption(ticket.status, "Open")}
           ${statusOption(ticket.status, "In Progress")}
           ${statusOption(ticket.status, "Resolved")}
@@ -950,14 +950,14 @@ function renderTicketAttachment(ticket) {
   }
 
   if (detailAttachmentName) {
-    detailAttachmentName.textContent = attachment.fileName || "Tá»‡p Ä‘Ã­nh kÃ¨m";
+    detailAttachmentName.textContent = attachment.fileName || "Tệp đính kèm";
   }
 
   if (detailAttachmentMeta) {
     detailAttachmentMeta.textContent = [
       attachment.contentType || "",
       attachment.size ? formatBytes(attachment.size) : ""
-    ].filter(Boolean).join(" â€¢ ");
+    ].filter(Boolean).join(" • ");
   }
 }
 
@@ -987,7 +987,7 @@ function renderTicketDetail(ticketId) {
   detailDescription.textContent = ticket.description || "--";
   renderTicketAttachment(ticket);
   resolutionNote.value = ticket.resolutionNote || "";
-  detailUpdatedAt.textContent = ticket.updatedAt ? `Cáº­p nháº­t láº§n cuá»‘i: ${formatTime(ticket.updatedAt)}` : "";
+  detailUpdatedAt.textContent = ticket.updatedAt ? `Cập nhật lần cuối: ${formatTime(ticket.updatedAt)}` : "";
   syncDetailStatusButtons(ticket.status);
   ticketDetailPanel.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -1026,10 +1026,10 @@ async function updateSelectedTicketStatus(nextStatus) {
   setDetailActionButtonsDisabled(true);
 
   if (detailUpdatedAt) {
-    detailUpdatedAt.textContent = `Äang chuyá»ƒn tráº¡ng thÃ¡i sang ${nextLabel}...`;
+    detailUpdatedAt.textContent = `Đang chuyển trạng thái sang ${nextLabel}...`;
   }
 
-  setStatus(adminStatusEl, `Äang cáº­p nháº­t ${selectedTicketId} sang ${nextLabel}...`, "");
+  setStatus(adminStatusEl, `Đang cập nhật ${selectedTicketId} sang ${nextLabel}...`, "");
 
   try {
     const updatedTicket = await patchTicketRemote(selectedTicketId, {
@@ -1042,18 +1042,18 @@ async function updateSelectedTicketStatus(nextStatus) {
 
     if (detailUpdatedAt) {
       const updatedAt = updatedTicket.updatedAt || new Date().toISOString();
-      detailUpdatedAt.textContent = `ÄÃ£ chuyá»ƒn sang ${nextLabel}. Cáº­p nháº­t: ${formatTime(updatedAt)}`;
+      detailUpdatedAt.textContent = `Đã chuyển sang ${nextLabel}. Cập nhật: ${formatTime(updatedAt)}`;
     }
 
-    setStatus(adminStatusEl, `ÄÃ£ cáº­p nháº­t ${selectedTicketId} sang ${nextLabel}.`, "success");
+    setStatus(adminStatusEl, `Đã cập nhật ${selectedTicketId} sang ${nextLabel}.`, "success");
   } catch (error) {
     console.error(error);
 
     if (detailUpdatedAt) {
-      detailUpdatedAt.textContent = `KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i: ${error.message}`;
+      detailUpdatedAt.textContent = `Không thể cập nhật trạng thái: ${error.message}`;
     }
 
-    setStatus(adminStatusEl, `KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i: ${error.message}`, "error");
+    setStatus(adminStatusEl, `Không thể cập nhật trạng thái: ${error.message}`, "error");
   } finally {
     setDetailActionButtonsDisabled(false);
     syncDetailStatusButtons(findTicket(selectedTicketId)?.status || currentTicket?.status || "Open");
@@ -1080,7 +1080,7 @@ function saveTicketResolutionNote() {
   saveTickets(tickets);
   renderTickets();
   renderTicketDetail(selectedTicketId);
-  setStatus(adminStatusEl, `ÄÃ£ lÆ°u ghi chÃº xá»­ lÃ½ cho ${selectedTicketId}.`, "success");
+  setStatus(adminStatusEl, `Đã lưu ghi chú xử lý cho ${selectedTicketId}.`, "success");
 }
 
 async function saveTicketResolutionNoteRemote() {
@@ -1089,7 +1089,7 @@ async function saveTicketResolutionNoteRemote() {
   }
 
   const currentTicket = findTicket(selectedTicketId);
-  setStatus(adminStatusEl, "Äang lÆ°u ghi chÃº xá»­ lÃ½ lÃªn DynamoDB...", "");
+  setStatus(adminStatusEl, "Đang lưu ghi chú xử lý lên DynamoDB...", "");
 
   try {
     await patchTicketRemote(selectedTicketId, {
@@ -1098,10 +1098,10 @@ async function saveTicketResolutionNoteRemote() {
     });
     renderTickets();
     renderTicketDetail(selectedTicketId);
-    setStatus(adminStatusEl, `ÄÃ£ lÆ°u ghi chÃº xá»­ lÃ½ cho ${selectedTicketId}.`, "success");
+    setStatus(adminStatusEl, `Đã lưu ghi chú xử lý cho ${selectedTicketId}.`, "success");
   } catch (error) {
     console.error(error);
-    setStatus(adminStatusEl, `KhÃ´ng thá»ƒ lÆ°u ghi chÃº xá»­ lÃ½: ${error.message}`, "error");
+    setStatus(adminStatusEl, `Không thể lưu ghi chú xử lý: ${error.message}`, "error");
   }
 }
 
@@ -1242,7 +1242,7 @@ loginForm?.addEventListener("submit", (event) => {
   const account = DEMO_ACCOUNTS[role];
 
   if (loginEmail.value.trim().toLowerCase() !== account.email || loginPassword.value !== account.password) {
-    setStatus(loginStatus, "Email hoáº·c máº­t kháº©u demo khÃ´ng Ä‘Ãºng.", "error");
+    setStatus(loginStatus, "Email hoặc mật khẩu demo không đúng.", "error");
     return;
   }
 
@@ -1274,26 +1274,26 @@ if (form) {
     const session = getSession();
 
     if (!session) {
-      setStatus(statusEl, "Báº¡n cáº§n Ä‘Äƒng nháº­p User demo trÆ°á»›c khi gá»­i ticket.", "error");
+      setStatus(statusEl, "Bạn cần đăng nhập User demo trước khi gửi ticket.", "error");
       openAuthModal("user");
       return;
     }
 
     if (session.role !== "user") {
-      setStatus(statusEl, "TÃ i khoáº£n Admin chá»‰ dÃ¹ng Ä‘á»ƒ xá»­ lÃ½ ticket. HÃ£y Ä‘Äƒng nháº­p User Ä‘á»ƒ gá»­i yÃªu cáº§u.", "error");
+      setStatus(statusEl, "Tài khoản Admin chỉ dùng để xử lý ticket. Hãy đăng nhập User để gửi yêu cầu.", "error");
       return;
     }
 
     syncRequesterFields();
 
     if (!form.reportValidity()) {
-      setStatus(statusEl, "Vui lÃ²ng Ä‘iá»n Ä‘áº§y Ä‘á»§ cÃ¡c trÆ°á»ng báº¯t buá»™c trong tab ThÃ´ng tin cÆ¡ báº£n.", "error");
+      setStatus(statusEl, "Vui lòng điền đầy đủ các trường bắt buộc trong tab Thông tin cơ bản.", "error");
       activateTicketTab("basic");
       return;
     }
 
     const payload = Object.fromEntries(new FormData(form).entries());
-    setStatus(statusEl, "Äang chuáº©n bá»‹ tá»‡p Ä‘Ã­nh kÃ¨m...", "");
+    setStatus(statusEl, "Đang chuẩn bị tệp đính kèm...", "");
 
     try {
       const file = attachmentInput?.files?.[0] || null;
@@ -1304,7 +1304,7 @@ if (form) {
       return;
     }
 
-    setStatus(statusEl, "Äang gá»­i ticket lÃªn AWS...", "");
+    setStatus(statusEl, "Đang gửi ticket lên AWS...", "");
 
     let result;
 
@@ -1312,7 +1312,7 @@ if (form) {
       result = await createTicketRemote(payload);
     } catch (error) {
       console.error(error);
-      setStatus(statusEl, `KhÃ´ng thá»ƒ gá»­i ticket lÃªn AWS API: ${error.message}`, "error");
+      setStatus(statusEl, `Không thể gửi ticket lên AWS API: ${error.message}`, "error");
       return;
     }
 
@@ -1320,7 +1320,7 @@ if (form) {
 
     if (result.ok) {
       if (createdTicketId && ticketConfirmation) {
-        createdTicketId.textContent = `MÃ£ ticket cá»§a báº¡n: ${result.ticketId}`;
+        createdTicketId.textContent = `Mã ticket của bạn: ${result.ticketId}`;
         ticketConfirmation.hidden = false;
       }
       if (ticketLookupInput) {
@@ -1352,20 +1352,20 @@ if (tableBody) {
 
     const previousValue = findTicket(select.dataset.ticketId)?.status || "Open";
     select.disabled = true;
-    setStatus(adminStatusEl, "Äang cáº­p nháº­t tráº¡ng thÃ¡i lÃªn DynamoDB...", "");
+    setStatus(adminStatusEl, "Đang cập nhật trạng thái lên DynamoDB...", "");
 
     try {
       await updateTicketStatusRemote(select.dataset.ticketId, select.value);
-      setStatus(adminStatusEl, `ÄÃ£ cáº­p nháº­t tráº¡ng thÃ¡i ${select.dataset.ticketId} thÃ nh ${statusLabel(select.value)}.`, "success");
+      setStatus(adminStatusEl, `Đã cập nhật trạng thái ${select.dataset.ticketId} thành ${statusLabel(select.value)}.`, "success");
     } catch (error) {
       console.error(error);
       select.value = previousValue;
-      setStatus(adminStatusEl, `KhÃ´ng thá»ƒ cáº­p nháº­t tráº¡ng thÃ¡i: ${error.message}`, "error");
+      setStatus(adminStatusEl, `Không thể cập nhật trạng thái: ${error.message}`, "error");
     } finally {
       select.disabled = false;
     }
     return;
-    setStatus(adminStatusEl, `ÄÃ£ cáº­p nháº­t tráº¡ng thÃ¡i ${select.dataset.ticketId} thÃ nh ${statusLabel(select.value)}.`, "success");
+    setStatus(adminStatusEl, `Đã cập nhật trạng thái ${select.dataset.ticketId} thành ${statusLabel(select.value)}.`, "success");
   });
 
   tableBody.addEventListener("click", (event) => {
@@ -1416,7 +1416,7 @@ clearButton?.addEventListener("click", () => {
 window.addEventListener("storage", (event) => {
   if (event.key === STORAGE_KEY) {
     renderTickets();
-    setStatus(adminStatusEl, "ÄÃ£ nháº­n dá»¯ liá»‡u ticket má»›i tá»« tab khÃ¡c.", "success");
+    setStatus(adminStatusEl, "Đã nhận dữ liệu ticket mới từ tab khác.", "success");
   }
 });
 

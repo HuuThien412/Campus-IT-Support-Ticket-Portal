@@ -1,0 +1,10 @@
+{
+  "files.exclude": {
+    "**/.agents": true,
+    "**/.codex": true,
+    "**/.hugo_build.lock": true,
+    "**/hugo-*.log": true,
+    "**/public": true,
+    "**/resources": true
+  }
+}

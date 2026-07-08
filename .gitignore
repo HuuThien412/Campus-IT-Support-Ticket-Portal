@@ -2,5 +2,10 @@ public/
 resources/
 .hugo_build.lock
 hugo-*.log
+.agents/
+.codex/
+.env
+.env.*
+node_modules/
 .DS_Store
 Thumbs.db
