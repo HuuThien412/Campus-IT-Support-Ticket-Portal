@@ -6,7 +6,7 @@
   <meta name="description" content="{{ .Site.Params.description }}">
   <title>{{ .Site.Title }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260708-clean">
+  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260709-signup">
 </head>
 <body data-initial-view="{{ .InitialView }}">
   <div class="view-switcher" aria-label="Chuyển giao diện">
@@ -26,6 +26,10 @@
       <button class="session-button" id="loginButton" type="button">
         <i class="ti ti-login-2" aria-hidden="true"></i>
         Đăng nhập
+      </button>
+      <button class="session-button session-button-secondary" id="signupButton" type="button">
+        <i class="ti ti-user-plus" aria-hidden="true"></i>
+        Đăng ký
       </button>
       <button class="session-button" id="logoutButton" type="button" hidden>
         <i class="ti ti-logout-2" aria-hidden="true"></i>
@@ -65,6 +69,11 @@
         </button>
         <p class="form-status" id="loginStatus"></p>
       </form>
+
+      <div class="auth-alt-action">
+        <span>Chưa có tài khoản?</span>
+        <button class="auth-link" id="signupLink" type="button">Đăng ký bằng Cognito</button>
+      </div>
 
       <div class="demo-accounts">
         <strong>Tài khoản demo</strong>
@@ -538,8 +547,8 @@
     </main>
   </div>
 
-  <script src="{{ "js/config.js" | relURL }}?v=20260708-clean"></script>
-  <script src="{{ "js/app.js" | relURL }}?v=20260708-clean"></script>
+  <script src="{{ "js/config.js" | relURL }}?v=20260709-signup"></script>
+  <script src="{{ "js/app.js" | relURL }}?v=20260709-signup"></script>
 </body>
 </html>
 

@@ -141,6 +141,10 @@ b {
   color: var(--text);
 }
 
+.session-button-secondary {
+  color: var(--primary);
+}
+
 .auth-modal {
   position: fixed;
   inset: 0;
@@ -190,6 +194,28 @@ b {
 
 .login-form .button {
   width: 100%;
+}
+
+.auth-alt-action {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.auth-link {
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+  font-weight: 500;
+  padding: 0;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
 }
 
 .demo-accounts {

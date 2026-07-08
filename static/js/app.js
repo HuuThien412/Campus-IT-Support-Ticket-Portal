@@ -72,6 +72,7 @@ const resolutionNote = document.querySelector("#resolutionNote");
 const detailUpdatedAt = document.querySelector("#detailUpdatedAt");
 const authModal = document.querySelector("#authModal");
 const loginButton = document.querySelector("#loginButton");
+const signupButton = document.querySelector("#signupButton");
 const logoutButton = document.querySelector("#logoutButton");
 const closeAuthModal = document.querySelector("#closeAuthModal");
 const loginForm = document.querySelector("#loginForm");
@@ -79,6 +80,7 @@ const loginRole = document.querySelector("#loginRole");
 const loginEmail = document.querySelector("#loginEmail");
 const loginPassword = document.querySelector("#loginPassword");
 const loginStatus = document.querySelector("#loginStatus");
+const signupLink = document.querySelector("#signupLink");
 const sessionChip = document.querySelector("#sessionChip");
 const fullNameInput = document.querySelector("#fullName");
 const requesterEmailInput = document.querySelector("#email");
@@ -234,6 +236,19 @@ function buildCognitoLoginUrl(role = "user") {
   return url.toString();
 }
 
+function buildCognitoSignupUrl() {
+  const domain = normalizeCognitoDomain(COGNITO_CONFIG.domain);
+  const url = new URL(`${domain}/signup`);
+
+  url.searchParams.set("client_id", COGNITO_CONFIG.clientId);
+  url.searchParams.set("response_type", "token");
+  url.searchParams.set("scope", "openid email profile");
+  url.searchParams.set("redirect_uri", COGNITO_CONFIG.redirectUri);
+  url.searchParams.set("state", "user");
+
+  return url.toString();
+}
+
 function buildCognitoLogoutUrl() {
   const domain = normalizeCognitoDomain(COGNITO_CONFIG.domain);
   const url = new URL(`${domain}/logout`);
@@ -322,6 +337,18 @@ function openAuthModal(role = "user") {
   }
 }
 
+function openSignup() {
+  pendingAuthView = "user";
+
+  if (isCognitoEnabled()) {
+    window.location.href = buildCognitoSignupUrl();
+    return;
+  }
+
+  openAuthModal("user");
+  setStatus(loginStatus, "Đăng ký tự phục vụ sẽ hoạt động sau khi bật Cognito trong Amplify.", "");
+}
+
 function closeAuthDialog() {
   if (authModal) {
     authModal.hidden = true;
@@ -356,6 +383,7 @@ function renderSession() {
   if (!session) {
     sessionChip.innerHTML = '<i class="ti ti-user-circle" aria-hidden="true"></i> Chưa đăng nhập';
     loginButton.hidden = false;
+    signupButton.hidden = false;
     logoutButton.hidden = true;
     return;
   }
@@ -364,6 +392,7 @@ function renderSession() {
   sessionChip.classList.add(session.role === "admin" ? "is-admin" : "is-user");
   sessionChip.innerHTML = `<i class="ti ti-shield-check" aria-hidden="true"></i> ${roleLabel}: ${escapeHtml(session.email)}`;
   loginButton.hidden = true;
+  signupButton.hidden = true;
   logoutButton.hidden = false;
   syncRequesterFields();
 }
@@ -1209,6 +1238,9 @@ loginButton?.addEventListener("click", () => {
   const activeView = document.querySelector("[data-app-view]:not([hidden])")?.dataset.appView;
   openAuthModal(activeView === "admin" ? "admin" : "user");
 });
+
+signupButton?.addEventListener("click", openSignup);
+signupLink?.addEventListener("click", openSignup);
 
 logoutButton?.addEventListener("click", () => {
   const session = getSession();
