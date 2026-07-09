@@ -1570,7 +1570,8 @@ markInProgressButton?.addEventListener("click", () => updateSelectedTicketStatus
 markResolvedButton?.addEventListener("click", () => updateSelectedTicketStatus("Resolved"));
 
 const cognitoRedirectView = handleCognitoCallback();
-const initialView = cognitoRedirectView || (location.hash === "#admin" || document.body.dataset.initialView === "admin" ? "admin" : "user");
+const currentSession = getSession();
+const initialView = cognitoRedirectView || (currentSession?.role === "admin" || location.hash === "#admin" || document.body.dataset.initialView === "admin" ? "admin" : "user");
 renderSession();
 showAppView(initialView, { updateAddress: false });
 activateTicketTab("basic");
