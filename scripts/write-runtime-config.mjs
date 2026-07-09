@@ -1,9 +1,9 @@
 import { writeFileSync } from "node:fs";
 
 const apiBaseUrl = process.env.API_BASE_URL || "https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com";
-const cognitoEnabled = String(process.env.COGNITO_ENABLED || "false").toLowerCase() === "true";
-const cognitoDomain = process.env.COGNITO_DOMAIN || "";
-const cognitoClientId = process.env.COGNITO_CLIENT_ID || "";
+const cognitoEnabled = String(process.env.COGNITO_ENABLED || "true").toLowerCase() === "true";
+const cognitoDomain = process.env.COGNITO_DOMAIN || "https://ap-southeast-1dlwufncru.auth.ap-southeast-1.amazoncognito.com";
+const cognitoClientId = process.env.COGNITO_CLIENT_ID || "6b0npdra3clhdlpfen45iekr5l";
 const cognitoRedirectUri = process.env.COGNITO_REDIRECT_URI
   ? JSON.stringify(process.env.COGNITO_REDIRECT_URI)
   : "`${window.location.origin}${window.location.pathname}`";
