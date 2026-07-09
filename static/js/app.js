@@ -860,10 +860,14 @@ async function patchTicketRemote(ticketId, payload) {
 
 
 async function deleteTicketRemote(ticketId) {
-  await apiRequest(`/tickets/${encodeURIComponent(ticketId)}`, {
+  const data = await apiRequest(`/tickets/${encodeURIComponent(ticketId)}`, {
     method: "PATCH",
     body: JSON.stringify({ action: "delete" })
   });
+
+  if (!data.deleted || data.ticketId !== ticketId) {
+    throw new Error("Backend chưa xác nhận đã xóa ticket. Hãy cập nhật Lambda rồi thử lại.");
+  }
 
   saveTickets(getTickets().filter((ticket) => ticket.id !== ticketId));
 

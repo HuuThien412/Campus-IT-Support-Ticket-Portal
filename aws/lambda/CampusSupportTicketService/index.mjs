@@ -312,6 +312,7 @@ export const handler = async (event) => {
 
         return response(200, {
           ok: true,
+          deleted: true,
           ticketId
         });
       }
