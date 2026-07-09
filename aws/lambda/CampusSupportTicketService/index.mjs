@@ -63,15 +63,33 @@ const publicObjectUrl = (key) => {
 
 const getJwtClaims = (event) => event.requestContext?.authorizer?.jwt?.claims || {};
 
+const normalizeGroupName = (group) => String(group || "")
+  .replace(/^\[|\]$/g, "")
+  .replace(/^"|"$/g, "")
+  .trim();
+
 const getGroupsFromClaims = (claims) => {
   const groups = claims["cognito:groups"];
 
   if (Array.isArray(groups)) {
-    return groups;
+    return groups.map(normalizeGroupName).filter(Boolean);
   }
 
   if (typeof groups === "string") {
-    return groups.split(",").map((group) => group.trim()).filter(Boolean);
+    try {
+      const parsedGroups = JSON.parse(groups);
+      if (Array.isArray(parsedGroups)) {
+        return parsedGroups.map(normalizeGroupName).filter(Boolean);
+      }
+    } catch {
+      // API Gateway can pass array claims as plain strings like "[Admins]".
+    }
+
+    return groups
+      .replace(/^\[|\]$/g, "")
+      .split(/[ ,]+/)
+      .map(normalizeGroupName)
+      .filter(Boolean);
   }
 
   return [];

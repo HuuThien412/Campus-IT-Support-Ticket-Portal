@@ -74,9 +74,9 @@ Output nằm trong thư mục `public/`. Thư mục này được ignore vì Amp
 
 ```text
 API_BASE_URL=https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com
-COGNITO_ENABLED=false
-COGNITO_DOMAIN=
-COGNITO_CLIENT_ID=
+COGNITO_ENABLED=true
+COGNITO_DOMAIN=https://ap-southeast-1dlwufncru.auth.ap-southeast-1.amazoncognito.com
+COGNITO_CLIENT_ID=6b0npdra3clhdlpfen45iekr5l
 COGNITO_REDIRECT_URI=
 COGNITO_LOGOUT_URI=
 ```
@@ -118,3 +118,15 @@ Admin: admin@campus.edu.vn   / admin123
 ```
 
 Các tài khoản này chỉ phục vụ demo frontend khi `COGNITO_ENABLED=false`.
+## AWS production checklist
+
+- Cognito user pool region: `ap-southeast-1`.
+- Cognito user pool ID: `ap-southeast-1_dLwufNCru`.
+- Cognito groups: `Users` for normal users, `Admins` for IT admins.
+- Cognito app client callback/sign-out URLs must include the Amplify root URL and `/admin/`.
+- Cognito post-confirmation Lambda trigger should add new sign-up users to group `Users`.
+- API Gateway JWT authorizer issuer: `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_dLwufNCru`.
+- API Gateway JWT audience: `6b0npdra3clhdlpfen45iekr5l`.
+- API Gateway routes should include `GET /tickets`, `POST /tickets`, `GET /tickets/{ticketId}`, and `PATCH /tickets/{ticketId}`.
+- Lambda environment variable `AUTH_MODE` should be `cognito`.
+- Lambda role needs DynamoDB `PutItem`, `GetItem`, `Scan`, `UpdateItem`, and `DeleteItem` on the ticket table.

@@ -244,10 +244,32 @@ function decodeJwtPayload(token) {
   }
 }
 
+function normalizeCognitoGroupName(group) {
+  return String(group || "")
+    .replace(/^\[|\]$/g, "")
+    .replace(/^"|"$/g, "")
+    .trim();
+}
+
 function getRoleFromCognitoGroups(groups = []) {
-  const normalizedGroups = Array.isArray(groups)
-    ? groups
-    : String(groups || "").split(",").map((group) => group.trim()).filter(Boolean);
+  let normalizedGroups = [];
+
+  if (Array.isArray(groups)) {
+    normalizedGroups = groups.map(normalizeCognitoGroupName).filter(Boolean);
+  } else if (typeof groups === "string") {
+    try {
+      const parsedGroups = JSON.parse(groups);
+      if (Array.isArray(parsedGroups)) {
+        normalizedGroups = parsedGroups.map(normalizeCognitoGroupName).filter(Boolean);
+      }
+    } catch {
+      normalizedGroups = groups
+        .replace(/^\[|\]$/g, "")
+        .split(/[ ,]+/)
+        .map(normalizeCognitoGroupName)
+        .filter(Boolean);
+    }
+  }
 
   if (normalizedGroups.includes("Admins") || normalizedGroups.includes("Admin")) {
     return "admin";
