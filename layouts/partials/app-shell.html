@@ -6,19 +6,19 @@
   <meta name="description" content="{{ .Site.Params.description }}">
   <title>{{ .Site.Title }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260709-signup">
+  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260709-unified-header1">
 </head>
 <body data-initial-view="{{ .InitialView }}">
-  <div class="view-switcher" aria-label="Chuyển giao diện">
-    <button class="switch-button" type="button" data-switch-view="user">
-      <i class="ti ti-user" aria-hidden="true"></i>
-      User Portal
-    </button>
-    <button class="switch-button" type="button" data-switch-view="admin">
-      <i class="ti ti-shield-lock" aria-hidden="true"></i>
-      Admin Console
-    </button>
-    <div class="session-controls" aria-label="Trạng thái đăng nhập">
+  <header class="site-header" aria-label="Điều hướng chính">
+    <a class="brand" href="{{ "/" | relURL }}" aria-label="Campus Support">
+      <span class="brand-logo">IT</span>
+      <span class="brand-copy">
+        <span>Campus Support</span>
+        <small>Helpdesk Portal</small>
+      </span>
+    </a>
+    <div class="header-actions">
+      <div class="session-controls" aria-label="Trạng thái đăng nhập">
       <span class="session-chip" id="sessionChip">
         <i class="ti ti-user-circle" aria-hidden="true"></i>
         Chưa đăng nhập
@@ -35,70 +35,81 @@
         <i class="ti ti-logout-2" aria-hidden="true"></i>
         Đăng xuất
       </button>
+          </div>
+      <a class="button button-primary header-request-link" id="headerRequestLink" href="#ticketForm">
+        <i class="ti ti-send" aria-hidden="true"></i>
+        Gửi yêu cầu
+      </a>
     </div>
-  </div>
+  </header>
 
   <div class="auth-modal" id="authModal" hidden>
     <div class="auth-dialog" role="dialog" aria-modal="true" aria-labelledby="authTitle">
       <button class="auth-close" id="closeAuthModal" type="button" aria-label="Đóng đăng nhập">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>
-      <p class="section-label">Amazon Cognito demo</p>
       <h2 id="authTitle">Đăng nhập vào hệ thống</h2>
-      <p class="auth-desc">Chọn vai trò và dùng tài khoản demo để xem luồng User Portal hoặc Admin Console.</p>
 
-      <form class="login-form" id="loginForm">
-        <label class="field">
-          <span>Vai trò</span>
-          <select id="loginRole" name="role">
-            <option value="user">User / Student</option>
-            <option value="admin">Admin / IT Staff</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Email</span>
-          <input id="loginEmail" name="email" type="email" autocomplete="username" required>
-        </label>
-        <label class="field">
-          <span>Mật khẩu</span>
-          <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
-        </label>
-        <button class="button button-primary" type="submit">
-          <i class="ti ti-shield-check" aria-hidden="true"></i>
-          Đăng nhập
-        </button>
-        <p class="form-status" id="loginStatus"></p>
-      </form>
+      <div class="auth-panel" id="loginPanel">
+        <form class="login-form" id="loginForm">
+          <label class="field">
+            <span>Email</span>
+            <input id="loginEmail" name="email" type="email" autocomplete="username" required>
+          </label>
+          <label class="field">
+            <span>Mật khẩu</span>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+          </label>
+          <button class="button button-primary" type="submit">
+            <i class="ti ti-shield-check" aria-hidden="true"></i>
+            Đăng nhập
+          </button>
+          <p class="form-status" id="loginStatus"></p>
+        </form>
 
-      <div class="auth-alt-action">
-        <span>Chưa có tài khoản?</span>
-        <button class="auth-link" id="signupLink" type="button">Đăng ký bằng Cognito</button>
+        <div class="auth-alt-action">
+          <span>Chưa có tài khoản?</span>
+          <button class="auth-link" id="signupLink" type="button">Đăng ký tài khoản</button>
+        </div>
       </div>
 
-      <div class="demo-accounts">
-        <strong>Tài khoản demo</strong>
-        <span>User: <code>student@campus.edu.vn</code> / <code>student123</code></span>
-        <span>Admin: <code>admin@campus.edu.vn</code> / <code>admin123</code></span>
+      <div class="auth-panel auth-signup-panel" id="signupPanel" hidden>
+        <form class="signup-form" id="signupForm">
+          <label class="field">
+            <span>Họ tên</span>
+            <input id="signupName" name="name" autocomplete="name" placeholder="Nguyễn Văn A" required minlength="2">
+          </label>
+          <label class="field">
+            <span>Email trường</span>
+            <input id="signupEmail" name="email" type="email" autocomplete="email" placeholder="student@example.edu.vn" required>
+          </label>
+          <div class="form-grid auth-password-grid">
+            <label class="field">
+              <span>Mật khẩu</span>
+              <input id="signupPassword" name="password" type="password" autocomplete="new-password" required minlength="8">
+            </label>
+            <label class="field">
+              <span>Xác nhận mật khẩu</span>
+              <input id="signupPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" required minlength="8">
+            </label>
+          </div>
+          <button class="button button-primary" type="submit">
+            <i class="ti ti-user-plus" aria-hidden="true"></i>
+            Tạo tài khoản
+          </button>
+          <p class="form-status" id="signupStatus"></p>
+        </form>
+
+        <div class="auth-alt-action">
+          <span>Đã có tài khoản?</span>
+          <button class="auth-link" id="loginLink" type="button">Quay lại đăng nhập</button>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="app-view" id="userView" data-app-view="user" {{ if eq .InitialView "admin" }}hidden{{ end }}>
-    <header class="navbar">
-      <a class="brand" href="{{ "/" | relURL }}" aria-label="Campus Support">
-        <span class="brand-logo">IT</span>
-        <span class="brand-copy">
-          <span>Campus Support</span>
-          <small>Helpdesk Portal</small>
-        </span>
-      </a>
-      <a class="button button-primary" href="#ticketForm">
-        <i class="ti ti-send" aria-hidden="true"></i>
-        Gửi yêu cầu
-      </a>
-    </header>
-
-    <main class="page-shell">
+<main class="page-shell">
       <section class="hero hero-user">
         <div class="hero-copy">
           <p class="eyebrow">Cổng hỗ trợ kỹ thuật</p>
@@ -107,12 +118,33 @@
             Ghi nhận sự cố WiFi, tài khoản, phần mềm hoặc thiết bị trong khuôn viên trường.
             Đội hỗ trợ sẽ tiếp nhận, phân loại và cập nhật trạng thái xử lý.
           </p>
+          <div class="hero-support-stats" aria-label="Tình trạng hỗ trợ">
+            <span class="hero-status-ok"><i class="ti ti-circle-check-filled" aria-hidden="true"></i>Hệ thống hoạt động bình thường</span>
+            <span class="hero-status-fast"><i class="ti ti-bolt-filled" aria-hidden="true"></i>Phản hồi trung bình: 4 giờ</span>
+            <span class="hero-status-rate"><i class="ti ti-checks" aria-hidden="true"></i>94% ticket được giải quyết</span>
+          </div>
+          <div class="hero-quick-list" aria-label="Nhóm hỗ trợ phổ biến">
+            <span><i class="ti ti-wifi" aria-hidden="true"></i>WiFi</span>
+            <span><i class="ti ti-user-shield" aria-hidden="true"></i>Tài khoản</span>
+            <span><i class="ti ti-apps" aria-hidden="true"></i>Phần mềm</span>
+            <span><i class="ti ti-device-laptop" aria-hidden="true"></i>Thiết bị</span>
+          </div>
         </div>
 
         <aside class="stat-card" aria-label="Thời gian phản hồi mục tiêu">
           <span>Thời gian phản hồi mục tiêu</span>
           <strong>24 giờ</strong>
-          <p>Ticket được lưu trong trình duyệt để admin có thể theo dõi khi demo.</p>
+          <p>Ticket được lưu để bộ phận IT có thể theo dõi và cập nhật trạng thái.</p>
+          <div class="stat-extra-grid" aria-label="Chỉ số hỗ trợ bổ sung">
+            <div>
+              <span>Tỉ lệ giải quyết</span>
+              <strong>94%</strong>
+            </div>
+            <div>
+              <span>Ticket hôm nay</span>
+              <strong>3</strong>
+            </div>
+          </div>
         </aside>
       </section>
 
@@ -310,25 +342,7 @@
   </div>
 
   <div class="app-view" id="adminView" data-app-view="admin" {{ if ne .InitialView "admin" }}hidden{{ end }}>
-    <header class="navbar">
-      <a class="brand" href="{{ "/" | relURL }}" aria-label="Campus Support">
-        <span class="brand-logo">IT</span>
-        <span class="brand-copy">
-          <span>Campus Support</span>
-          <small>Admin Console</small>
-        </span>
-      </a>
-      <nav class="nav-actions" aria-label="Admin navigation">
-        <button class="button button-outline" type="button" data-switch-view="user">
-          User Portal
-        </button>
-        <button class="button button-primary" type="button" data-switch-view="admin">
-          Admin Console
-        </button>
-      </nav>
-    </header>
-
-    <main class="page-shell admin-shell">
+<main class="page-shell admin-shell">
       <section class="metric-grid" aria-label="Ticket metrics">
         <article class="metric-card">
           <div class="metric-head">
@@ -547,8 +561,9 @@
     </main>
   </div>
 
-  <script src="{{ "js/config.js" | relURL }}?v=20260709-signup"></script>
-  <script src="{{ "js/app.js" | relURL }}?v=20260709-signup"></script>
+  <script src="{{ "js/config.js" | relURL }}?v=20260709-unified-header1"></script>
+  <script src="{{ "js/app.js" | relURL }}?v=20260709-unified-header1"></script>
 </body>
 </html>
+
 

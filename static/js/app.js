@@ -1,5 +1,6 @@
 const STORAGE_KEY = "campus-it-support-tickets";
 const SESSION_KEY = "campus-it-support-session";
+const LOCAL_USERS_KEY = "campus-it-support-local-users";
 const APP_CONFIG = window.CAMPUS_SUPPORT_CONFIG || {};
 const API_BASE_URL = APP_CONFIG.apiBaseUrl || "https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com";
 const COGNITO_CONFIG = {
@@ -12,7 +13,6 @@ const COGNITO_CONFIG = {
 const MAX_ATTACHMENT_SIZE = 2 * 1024 * 1024;
 const ALLOWED_ATTACHMENT_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 
-const viewSwitchButtons = document.querySelectorAll("[data-switch-view]");
 const appViews = document.querySelectorAll("[data-app-view]");
 const ticketTabButtons = document.querySelectorAll("[data-ticket-tab]");
 const ticketPanels = document.querySelectorAll("[data-ticket-panel]");
@@ -73,14 +73,24 @@ const detailUpdatedAt = document.querySelector("#detailUpdatedAt");
 const authModal = document.querySelector("#authModal");
 const loginButton = document.querySelector("#loginButton");
 const signupButton = document.querySelector("#signupButton");
+const headerRequestLink = document.querySelector("#headerRequestLink");
 const logoutButton = document.querySelector("#logoutButton");
 const closeAuthModal = document.querySelector("#closeAuthModal");
+const authTitle = document.querySelector("#authTitle");
+const loginPanel = document.querySelector("#loginPanel");
+const signupPanel = document.querySelector("#signupPanel");
 const loginForm = document.querySelector("#loginForm");
-const loginRole = document.querySelector("#loginRole");
 const loginEmail = document.querySelector("#loginEmail");
 const loginPassword = document.querySelector("#loginPassword");
 const loginStatus = document.querySelector("#loginStatus");
 const signupLink = document.querySelector("#signupLink");
+const loginLink = document.querySelector("#loginLink");
+const signupForm = document.querySelector("#signupForm");
+const signupName = document.querySelector("#signupName");
+const signupEmail = document.querySelector("#signupEmail");
+const signupPassword = document.querySelector("#signupPassword");
+const signupPasswordConfirm = document.querySelector("#signupPasswordConfirm");
+const signupStatus = document.querySelector("#signupStatus");
 const sessionChip = document.querySelector("#sessionChip");
 const fullNameInput = document.querySelector("#fullName");
 const requesterEmailInput = document.querySelector("#email");
@@ -95,7 +105,7 @@ let selectedTicketId = null;
 let pendingAuthView = "user";
 let ticketCache = [];
 
-const DEMO_ACCOUNTS = {
+const BUILT_IN_ACCOUNTS = {
   user: {
     role: "user",
     name: "Nguyễn Văn A",
@@ -161,6 +171,30 @@ function normalizeTicket(ticket) {
   };
 }
 
+function getLocalUsers() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY)) || [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalUser(user) {
+  const users = getLocalUsers().filter((item) => item.email !== user.email);
+  users.unshift(user);
+  localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(users));
+}
+
+function findLoginAccount(email, password) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const localUser = getLocalUsers().find((user) => user.email === normalizedEmail && user.password === password);
+
+  if (localUser) {
+    return localUser;
+  }
+
+  return Object.values(BUILT_IN_ACCOUNTS).find((account) => account.email === normalizedEmail && account.password === password) || null;
+}
 function getSession() {
   try {
     const session = JSON.parse(localStorage.getItem(SESSION_KEY));
@@ -298,25 +332,41 @@ function applyVisibleView(nextView) {
   appViews.forEach((view) => {
     view.hidden = view.dataset.appView !== nextView;
   });
-
-  document.querySelectorAll(".switch-button, .nav-actions [data-switch-view]").forEach((button) => {
-    button.classList.toggle("is-active", button.dataset.switchView === nextView);
-  });
 }
 
-function prefillLogin(role) {
-  const account = DEMO_ACCOUNTS[role === "admin" ? "admin" : "user"];
+function setAuthMode(mode = "login") {
+  const isSignup = mode === "signup";
 
-  if (loginRole) {
-    loginRole.value = account.role;
+  if (authTitle) {
+    authTitle.textContent = isSignup ? "Đăng ký tài khoản" : "Đăng nhập vào hệ thống";
+  }
+if (loginPanel) {
+    loginPanel.hidden = isSignup;
   }
 
-  if (loginEmail) {
-    loginEmail.value = account.email;
+  if (signupPanel) {
+    signupPanel.hidden = !isSignup;
   }
+setStatus(loginStatus, "", "");
+  setStatus(signupStatus, "", "");
+}
 
-  if (loginPassword) {
-    loginPassword.value = account.password;
+function openAuthDialog(role = "user") {
+  pendingAuthView = role === "admin" ? "admin" : "user";
+  setAuthMode("login");
+
+  if (authModal) {
+    authModal.hidden = false;
+    loginEmail?.focus();
+  }
+}
+
+function openSignupDialog() {
+  setAuthMode("signup");
+
+  if (authModal) {
+    authModal.hidden = false;
+    signupName?.focus();
   }
 }
 
@@ -328,13 +378,7 @@ function openAuthModal(role = "user") {
     return;
   }
 
-  prefillLogin(pendingAuthView);
-  setStatus(loginStatus, "", "");
-
-  if (authModal) {
-    authModal.hidden = false;
-    loginEmail?.focus();
-  }
+  openAuthDialog(pendingAuthView);
 }
 
 function openSignup() {
@@ -345,8 +389,7 @@ function openSignup() {
     return;
   }
 
-  openAuthModal("user");
-  setStatus(loginStatus, "Đăng ký tự phục vụ sẽ hoạt động sau khi bật Cognito trong Amplify.", "");
+  openSignupDialog();
 }
 
 function closeAuthDialog() {
@@ -451,7 +494,7 @@ function updateStorageStatus() {
   }
 
   const tickets = getTickets();
-  storageStatus.textContent = `Dong bo AWS API: ${tickets.length} ticket tu DynamoDB. Trinh duyet chi luu cache tam thoi de demo nhanh.`;
+  storageStatus.textContent = `Dong bo AWS API: ${tickets.length} ticket tu DynamoDB. Trinh duyet chi luu cache tam thoi de truy cap nhanh.`;
 }
 
 function formatTime(value) {
@@ -1228,11 +1271,23 @@ async function seedTicketsRemote() {
   }
 }
 
-viewSwitchButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    showAppView(button.dataset.switchView, { scrollTop: true });
-  });
+function addClickFeedback(element) {
+  element.classList.remove("is-clicked");
+  void element.offsetWidth;
+  element.classList.add("is-clicked");
+  window.setTimeout(() => element.classList.remove("is-clicked"), 220);
+}
+
+document.addEventListener("pointerdown", (event) => {
+  const target = event.target.closest("button, a.button");
+
+  if (!target || target.disabled) {
+    return;
+  }
+
+  addClickFeedback(target);
 });
+
 
 loginButton?.addEventListener("click", () => {
   const activeView = document.querySelector("[data-app-view]:not([hidden])")?.dataset.appView;
@@ -1255,7 +1310,13 @@ logoutButton?.addEventListener("click", () => {
   showAppView("user", { scrollTop: true });
 });
 
+headerRequestLink?.addEventListener("click", (event) => {
+  event.preventDefault();
+  showAppView("user", { scrollTop: false });
+  form?.scrollIntoView({ behavior: "smooth", block: "start" });
+});
 closeAuthModal?.addEventListener("click", closeAuthDialog);
+loginLink?.addEventListener("click", () => openAuthDialog(pendingAuthView));
 
 authModal?.addEventListener("click", (event) => {
   if (event.target === authModal) {
@@ -1263,18 +1324,49 @@ authModal?.addEventListener("click", (event) => {
   }
 });
 
-loginRole?.addEventListener("change", () => {
-  prefillLogin(loginRole.value);
-});
+signupForm?.addEventListener("submit", (event) => {
+  event.preventDefault();
 
+  const name = signupName.value.trim();
+  const email = signupEmail.value.trim().toLowerCase();
+  const password = signupPassword.value;
+  const passwordConfirm = signupPasswordConfirm.value;
+
+  if (password !== passwordConfirm) {
+    setStatus(signupStatus, "Mật khẩu xác nhận chưa khớp.", "error");
+    signupPasswordConfirm.focus();
+    return;
+  }
+  const account = {
+    role: "user",
+    name,
+    email,
+    password,
+    provider: "local-signup"
+  };
+
+  saveLocalUser(account);
+  saveSession({
+    role: account.role,
+    name: account.name,
+    email: account.email,
+    loggedInAt: new Date().toISOString(),
+    provider: account.provider
+  });
+
+  signupForm.reset();
+  renderSession();
+  closeAuthDialog();
+  showAppView("user", { scrollTop: true });
+  setStatus(statusEl, `Đã đăng ký và đăng nhập tài khoản ${email}.`, "success");
+});
 loginForm?.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  const role = loginRole.value === "admin" ? "admin" : "user";
-  const account = DEMO_ACCOUNTS[role];
+  const account = findLoginAccount(loginEmail.value, loginPassword.value);
 
-  if (loginEmail.value.trim().toLowerCase() !== account.email || loginPassword.value !== account.password) {
-    setStatus(loginStatus, "Email hoặc mật khẩu demo không đúng.", "error");
+  if (!account) {
+    setStatus(loginStatus, "Email hoặc mật khẩu không đúng.", "error");
     return;
   }
 
@@ -1282,12 +1374,13 @@ loginForm?.addEventListener("submit", (event) => {
     role: account.role,
     name: account.name,
     email: account.email,
-    loggedInAt: new Date().toISOString()
+    loggedInAt: new Date().toISOString(),
+    provider: account.provider || "local-login"
   });
 
   renderSession();
   closeAuthDialog();
-  showAppView(role === "admin" || pendingAuthView === "admin" ? "admin" : "user", { scrollTop: true });
+  showAppView(account.role === "admin" || pendingAuthView === "admin" ? "admin" : "user", { scrollTop: true });
 });
 
 ticketTabButtons.forEach((button) => {
@@ -1306,13 +1399,13 @@ if (form) {
     const session = getSession();
 
     if (!session) {
-      setStatus(statusEl, "Bạn cần đăng nhập User demo trước khi gửi ticket.", "error");
+      setStatus(statusEl, "Bạn cần đăng nhập trước khi gửi ticket.", "error");
       openAuthModal("user");
       return;
     }
 
     if (session.role !== "user") {
-      setStatus(statusEl, "Tài khoản Admin chỉ dùng để xử lý ticket. Hãy đăng nhập User để gửi yêu cầu.", "error");
+      setStatus(statusEl, "Tài khoản quản trị chỉ dùng để xử lý ticket. Hãy đăng nhập tài khoản người dùng để gửi yêu cầu.", "error");
       return;
     }
 
@@ -1483,6 +1576,7 @@ showAppView(initialView, { updateAddress: false });
 activateTicketTab("basic");
 renderTickets();
 updateStorageStatus();
+
 
 
 
