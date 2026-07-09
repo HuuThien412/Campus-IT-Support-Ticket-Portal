@@ -292,6 +292,30 @@ export const handler = async (event) => {
       const ticketId = decodeURIComponent(path.split("/tickets/")[1]);
       const payload = JSON.parse(event.body || "{}");
 
+      if (payload.action === "delete") {
+        const existing = await dynamo.send(new GetCommand({
+          TableName: TABLE_NAME,
+          Key: { ticketId }
+        }));
+
+        if (!existing.Item) {
+          return response(404, {
+            ok: false,
+            message: "Ticket not found"
+          });
+        }
+
+        await dynamo.send(new DeleteCommand({
+          TableName: TABLE_NAME,
+          Key: { ticketId }
+        }));
+
+        return response(200, {
+          ok: true,
+          ticketId
+        });
+      }
+
       const result = await dynamo.send(new UpdateCommand({
         TableName: TABLE_NAME,
         Key: { ticketId },

@@ -861,7 +861,8 @@ async function patchTicketRemote(ticketId, payload) {
 
 async function deleteTicketRemote(ticketId) {
   await apiRequest(`/tickets/${encodeURIComponent(ticketId)}`, {
-    method: "DELETE"
+    method: "PATCH",
+    body: JSON.stringify({ action: "delete" })
   });
 
   saveTickets(getTickets().filter((ticket) => ticket.id !== ticketId));
@@ -1538,7 +1539,9 @@ if (tableBody) {
         setStatus(adminStatusEl, `Đã xóa ticket ${ticketId}.`, "success");
       } catch (error) {
         console.error(error);
-        setStatus(adminStatusEl, `Không thể xóa ticket: ${error.message}`, "error");
+        const message = `Không thể xóa ticket: ${error.message}`;
+        setStatus(adminStatusEl, message, "error");
+        window.alert(message);
         deleteButton.disabled = false;
       }
       return;
