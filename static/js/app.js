@@ -42,7 +42,6 @@ const highCount = document.querySelector("#highCount");
 const resolvedCount = document.querySelector("#resolvedCount");
 const refreshButton = document.querySelector("#refreshTickets");
 const seedButton = document.querySelector("#seedData");
-const clearButton = document.querySelector("#clearData");
 const ticketSearch = document.querySelector("#ticketSearch");
 const statusFilter = document.querySelector("#statusFilter");
 const priorityFilter = document.querySelector("#priorityFilter");
@@ -332,6 +331,10 @@ function applyVisibleView(nextView) {
   appViews.forEach((view) => {
     view.hidden = view.dataset.appView !== nextView;
   });
+
+  if (headerRequestLink) {
+    headerRequestLink.hidden = nextView === "admin";
+  }
 }
 
 function setAuthMode(mode = "login") {
@@ -855,6 +858,24 @@ async function patchTicketRemote(ticketId, payload) {
   return updatedTicket;
 }
 
+
+async function deleteTicketRemote(ticketId) {
+  await apiRequest(`/tickets/${encodeURIComponent(ticketId)}`, {
+    method: "DELETE"
+  });
+
+  saveTickets(getTickets().filter((ticket) => ticket.id !== ticketId));
+
+  if (selectedTicketId === ticketId) {
+    selectedTicketId = null;
+    if (ticketDetailPanel) {
+      ticketDetailPanel.hidden = true;
+    }
+  }
+
+  renderTickets();
+  updateStorageStatus();
+}
 async function updateTicketStatusRemote(ticketId, nextStatus) {
   const currentTicket = findTicket(ticketId);
 
@@ -961,12 +982,12 @@ function renderTickets() {
   updateStorageStatus();
 
   if (!tickets.length) {
-    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">Chưa có ticket hỗ trợ.</td></tr>';
+    tableBody.innerHTML = '<tr><td class="empty-row" colspan="10">Chưa có ticket hỗ trợ.</td></tr>';
     return;
   }
 
   if (!filteredTickets.length) {
-    tableBody.innerHTML = '<tr><td class="empty-row" colspan="9">Không có ticket nào khớp bộ lọc hiện tại.</td></tr>';
+    tableBody.innerHTML = '<tr><td class="empty-row" colspan="10">Không có ticket nào khớp bộ lọc hiện tại.</td></tr>';
     return;
   }
 
@@ -994,6 +1015,12 @@ function renderTickets() {
           ${statusOption(ticket.status, "In Progress")}
           ${statusOption(ticket.status, "Resolved")}
         </select>
+      </td>
+      <td>
+        <button class="button button-danger details-button delete-ticket-button" type="button" data-delete-id="${escapeHtml(ticket.id)}">
+          <i class="ti ti-trash" aria-hidden="true"></i>
+          Xóa
+        </button>
       </td>
     </tr>
   `).join("");
@@ -1493,7 +1520,30 @@ if (tableBody) {
     setStatus(adminStatusEl, `Đã cập nhật trạng thái ${select.dataset.ticketId} thành ${statusLabel(select.value)}.`, "success");
   });
 
-  tableBody.addEventListener("click", (event) => {
+  tableBody.addEventListener("click", async (event) => {
+    const deleteButton = event.target.closest("[data-delete-id]");
+    if (deleteButton) {
+      const ticketId = deleteButton.dataset.deleteId;
+      const confirmed = window.confirm(`Xóa ticket ${ticketId} khỏi DynamoDB? Hành động này không thể hoàn tác.`);
+
+      if (!confirmed) {
+        return;
+      }
+
+      deleteButton.disabled = true;
+      setStatus(adminStatusEl, `Đang xóa ticket ${ticketId} khỏi DynamoDB...`, "");
+
+      try {
+        await deleteTicketRemote(ticketId);
+        setStatus(adminStatusEl, `Đã xóa ticket ${ticketId}.`, "success");
+      } catch (error) {
+        console.error(error);
+        setStatus(adminStatusEl, `Không thể xóa ticket: ${error.message}`, "error");
+        deleteButton.disabled = false;
+      }
+      return;
+    }
+
     const button = event.target.closest("[data-detail-id]");
     if (!button) {
       return;
@@ -1526,17 +1576,6 @@ seedButton?.addEventListener("click", () => {
   seedTicketsRemote();
 });
 
-clearButton?.addEventListener("click", () => {
-  saveTickets([]);
-  selectedTicketId = null;
-
-  if (ticketDetailPanel) {
-    ticketDetailPanel.hidden = true;
-  }
-
-  setStatus(adminStatusEl, "Đã xóa cache ticket trong trình duyệt này. Dữ liệu DynamoDB không bị xóa.", "");
-  renderTickets();
-});
 
 window.addEventListener("storage", (event) => {
   if (event.key === STORAGE_KEY) {

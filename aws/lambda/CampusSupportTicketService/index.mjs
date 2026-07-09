@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
+  DeleteCommand,
   GetCommand,
   PutCommand,
   ScanCommand,
@@ -33,7 +34,7 @@ const response = (statusCode, body) => ({
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Headers": "Content-Type,Authorization,x-amz-date,x-api-key",
-    "Access-Control-Allow-Methods": "GET,POST,PATCH,OPTIONS"
+    "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS"
   },
   body: JSON.stringify(body)
 });
@@ -248,6 +249,37 @@ export const handler = async (event) => {
       return response(200, {
         ok: true,
         tickets
+      });
+    }
+
+
+    if (method === "DELETE" && path.includes("/tickets/")) {
+      const authError = requireGroups(event, ["Admins", "Admin"]);
+      if (authError) {
+        return authError;
+      }
+
+      const ticketId = decodeURIComponent(path.split("/tickets/")[1]);
+      const existing = await dynamo.send(new GetCommand({
+        TableName: TABLE_NAME,
+        Key: { ticketId }
+      }));
+
+      if (!existing.Item) {
+        return response(404, {
+          ok: false,
+          message: "Ticket not found"
+        });
+      }
+
+      await dynamo.send(new DeleteCommand({
+        TableName: TABLE_NAME,
+        Key: { ticketId }
+      }));
+
+      return response(200, {
+        ok: true,
+        ticketId
       });
     }
 
