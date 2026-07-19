@@ -3,6 +3,7 @@ const SESSION_KEY = "campus-it-support-session";
 const LOCAL_USERS_KEY = "campus-it-support-local-users";
 const APP_CONFIG = window.CAMPUS_SUPPORT_CONFIG || {};
 const API_BASE_URL = APP_CONFIG.apiBaseUrl || "https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com";
+const WEB_SOCKET_URL = APP_CONFIG.webSocketUrl || "";
 const COGNITO_CONFIG = {
   enabled: Boolean(APP_CONFIG.cognito?.enabled),
   domain: APP_CONFIG.cognito?.domain || "",
@@ -102,6 +103,11 @@ const STATUS_LABELS = {
 
 let selectedTicketId = null;
 let pendingAuthView = "user";
+let notificationSocket = null;
+let notificationReconnectTimer = null;
+let notificationReconnectAttempt = 0;
+let notificationClosedByApp = false;
+
 let ticketCache = [];
 
 const BUILT_IN_ACCOUNTS = {
@@ -213,7 +219,134 @@ function saveSession(session) {
   localStorage.setItem(SESSION_KEY, JSON.stringify(session));
 }
 
+function showRealtimeNotification(message, type = "info") {
+  let notification = document.querySelector("#realtimeNotification");
+
+  if (!notification) {
+    notification = document.createElement("div");
+    notification.id = "realtimeNotification";
+    notification.className = "realtime-notification";
+    notification.setAttribute("role", "status");
+    notification.setAttribute("aria-live", "polite");
+    notification.innerHTML = `
+      <i class="ti ti-bell" aria-hidden="true"></i>
+      <span data-notification-message></span>
+      <button type="button" data-notification-close aria-label="\u0110\u00f3ng th\u00f4ng b\u00e1o">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    `;
+    notification.querySelector("[data-notification-close]")?.addEventListener("click", () => {
+      notification.classList.remove("is-visible");
+    });
+    document.body.appendChild(notification);
+  }
+
+  const messageElement = notification.querySelector("[data-notification-message]");
+  if (messageElement) {
+    messageElement.textContent = message;
+  }
+
+  notification.dataset.type = type;
+  notification.classList.add("is-visible");
+  window.clearTimeout(notification.hideTimer);
+  notification.hideTimer = window.setTimeout(() => {
+    notification.classList.remove("is-visible");
+  }, 8000);
+}
+
+async function refreshTicketFromRealtime(ticketId) {
+  if (!ticketId) {
+    return;
+  }
+
+  try {
+    const data = await apiRequest(`/tickets/${encodeURIComponent(ticketId)}`);
+    const ticket = normalizeTicket(data.ticket || {});
+    saveTickets([ticket, ...getTickets().filter((item) => item.id !== ticket.id)]);
+    renderTickets();
+
+    const lookupCode = ticketLookupInput?.value.trim().toUpperCase();
+    if (lookupCode === String(ticket.id || ticket.ticketId || "").toUpperCase()) {
+      renderTicketLookupResult(ticket);
+      setStatus(ticketLookupStatus, `Ticket ${ticket.id} v\u1eeba \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt theo th\u1eddi gian th\u1ef1c.`, "success");
+    }
+  } catch (error) {
+    console.error("Kh\u00f4ng th\u1ec3 \u0111\u1ed3ng b\u1ed9 ticket t\u1eeb th\u00f4ng b\u00e1o th\u1eddi gian th\u1ef1c:", error);
+  }
+}
+
+function handleRealtimeMessage(event) {
+  try {
+    const payload = JSON.parse(event.data);
+
+    if (payload.type !== "ticket.updated") {
+      return;
+    }
+
+    const ticketId = payload.ticketId || payload.ticket?.ticketId || payload.ticket?.id;
+    const status = payload.status || payload.ticket?.status;
+    const statusText = status ? ` sang ${statusLabel(status)}` : "";
+    showRealtimeNotification(`Ticket ${ticketId || "c\u1ee7a b\u1ea1n"} \u0111\u00e3 \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt${statusText}.`, "success");
+    refreshTicketFromRealtime(ticketId);
+  } catch (error) {
+    console.error("Th\u00f4ng b\u00e1o WebSocket kh\u00f4ng h\u1ee3p l\u1ec7:", error);
+  }
+}
+
+function scheduleNotificationReconnect() {
+  const session = getSession();
+  if (notificationClosedByApp || !session?.idToken || !WEB_SOCKET_URL) {
+    return;
+  }
+
+  window.clearTimeout(notificationReconnectTimer);
+  const delay = Math.min(30000, 1000 * (2 ** notificationReconnectAttempt));
+  notificationReconnectAttempt += 1;
+  notificationReconnectTimer = window.setTimeout(connectNotificationSocket, delay);
+}
+
+function connectNotificationSocket() {
+  const session = getSession();
+
+  if (!WEB_SOCKET_URL || !session?.idToken || session.provider !== "cognito") {
+    disconnectNotificationSocket();
+    return;
+  }
+
+  if (notificationSocket?.readyState === WebSocket.OPEN || notificationSocket?.readyState === WebSocket.CONNECTING) {
+    return;
+  }
+
+  notificationClosedByApp = false;
+  const socketUrl = new URL(WEB_SOCKET_URL);
+  socketUrl.searchParams.set("idToken", session.idToken);
+  notificationSocket = new WebSocket(socketUrl.toString());
+
+  notificationSocket.addEventListener("open", () => {
+    notificationReconnectAttempt = 0;
+  });
+  notificationSocket.addEventListener("message", handleRealtimeMessage);
+  notificationSocket.addEventListener("close", () => {
+    notificationSocket = null;
+    scheduleNotificationReconnect();
+  });
+  notificationSocket.addEventListener("error", () => {
+    notificationSocket?.close();
+  });
+}
+
+function disconnectNotificationSocket() {
+  notificationClosedByApp = true;
+  window.clearTimeout(notificationReconnectTimer);
+  notificationReconnectTimer = null;
+
+  if (notificationSocket) {
+    notificationSocket.close();
+    notificationSocket = null;
+  }
+}
 function clearSession() {
+  disconnectNotificationSocket();
   localStorage.removeItem(SESSION_KEY);
 }
 
@@ -1512,6 +1645,7 @@ if (form) {
     }
   });
 }
+connectNotificationSocket();
 
 ticketLookupButton?.addEventListener("click", lookupTicketByCode);
 

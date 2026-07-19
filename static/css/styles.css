@@ -2155,3 +2155,61 @@ tbody tr:hover {
     justify-content: center;
   }
 }
+.realtime-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1200;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, calc(100vw - 32px));
+  padding: 12px 10px 12px 14px;
+  border: 1px solid #b8d8f6;
+  border-left: 4px solid #1473b8;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #17324d;
+  box-shadow: 0 14px 36px rgba(21, 49, 77, 0.2);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.realtime-notification.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.realtime-notification[data-type="success"] {
+  border-left-color: #0b9a75;
+}
+
+.realtime-notification > i {
+  color: #1473b8;
+  font-size: 20px;
+}
+
+.realtime-notification button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #52667a;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .realtime-notification {
+    top: 12px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+  }
+}

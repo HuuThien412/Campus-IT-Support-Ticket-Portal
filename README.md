@@ -1,79 +1,121 @@
-# Campus IT Support Ticket Portal
+﻿# Campus IT Support Ticket Portal
 
-Campus IT Support Ticket Portal là demo helpdesk serverless cho môi trường trường học, câu lạc bộ hoặc văn phòng nhỏ. Người dùng gửi yêu cầu hỗ trợ IT, admin xem danh sách ticket, cập nhật trạng thái xử lý và ghi chú phản hồi.
+Campus IT Support Ticket Portal là hệ thống helpdesk serverless dành cho môi trường trường học. Sinh viên và nhân viên có thể gửi yêu cầu hỗ trợ kỹ thuật, theo dõi trạng thái xử lý và nhận thông báo khi ticket được cập nhật. Đội ngũ IT sử dụng trang quản trị để xem, phân loại, cập nhật và xóa ticket.
 
 ## Tính năng chính
 
-- User Portal để tạo ticket hỗ trợ IT.
-- Admin Console để lọc, xem chi tiết và cập nhật trạng thái ticket.
+- Đăng ký và đăng nhập bằng Amazon Cognito Hosted UI.
+- Phân quyền người dùng theo hai nhóm Cognito: `Users` và `Admins`.
+- Tạo ticket hỗ trợ theo nhóm sự cố và mức độ ưu tiên.
+- Đính kèm tệp PDF, PNG, JPG hoặc WebP.
 - Tra cứu ticket bằng mã ticket.
-- Upload file minh họa dạng PDF, PNG, JPG hoặc WebP.
-- Dashboard đếm tổng ticket, ticket đang xử lý, ticket ưu tiên cao và ticket đã giải quyết.
-- Runtime config riêng cho API Gateway và Cognito, phù hợp deploy bằng AWS Amplify.
+- Admin lọc, xem chi tiết, cập nhật trạng thái, ghi chú và xóa ticket.
+- Gửi email xác nhận khi tạo ticket và email thông báo khi trạng thái thay đổi.
+- Gửi cảnh báo cho đội IT khi có ticket ưu tiên `High` hoặc `Critical`.
+- Nhận thông báo cập nhật ticket theo thời gian thực qua WebSocket mà không cần tải lại trang.
+- Theo dõi log và lỗi vận hành bằng Amazon CloudWatch.
 
-## AWS services
+## Kiến trúc hệ thống
 
-Project hiện dùng hoặc đã chuẩn bị dùng các dịch vụ AWS sau:
+```text
+User/Admin Browser
+  |
+  +-- HTTPS --> AWS Amplify Hosting
+  |
+  +-- Sign-in --> Amazon Cognito Hosted UI
+  |                 |
+  |                 +-- JWT token
+  |
+  +-- REST request + JWT --> API Gateway HTTP API
+  |                            |
+  |                            +-- JWT Authorizer
+  |                            |
+  |                            +-- CampusSupportTicketService
+  |                                  |
+  |                                  +-- DynamoDB: CampusSupportTickets
+  |                                  +-- Amazon S3: attachment storage
+  |
+  +-- WebSocket + ID token --> API Gateway WebSocket API
+                                 |
+                                 +-- CampusSupportWebSocketService
+                                 +-- DynamoDB: CampusSupportConnections
 
-- AWS Amplify Hosting: host frontend Hugo và tự động build/deploy từ GitHub.
-- API Gateway: nhận request từ frontend.
-- AWS Lambda: xử lý logic tạo, xem và cập nhật ticket.
-- Amazon DynamoDB: lưu ticket theo `ticketId`.
-- Amazon S3: lưu file đính kèm.
-- Amazon CloudWatch: theo dõi log Lambda/API.
-- Amazon Cognito: chuẩn bị dùng cho đăng nhập và phân quyền User/Admin.
-- Amazon Route 53: chuẩn bị dùng cho domain riêng.
+CampusSupportTickets DynamoDB Stream
+  |
+  +-- CampusSupportNotificationService
+        |
+        +-- Amazon SES: email notification
+        +-- API Gateway Management API: real-time notification
+```
+
+## Dịch vụ AWS sử dụng
+
+| Dịch vụ | Vai trò |
+| --- | --- |
+| AWS Amplify Hosting | Build và host frontend Hugo từ GitHub |
+| Amazon Cognito | Xác thực, Hosted UI và phân quyền `Users`/`Admins` |
+| Amazon API Gateway HTTP API | Cung cấp REST API cho ticket |
+| Amazon API Gateway WebSocket API | Duy trì kết nối và gửi thông báo thời gian thực |
+| AWS Lambda | Xử lý ticket, kết nối WebSocket và gửi thông báo |
+| Amazon DynamoDB | Lưu ticket và connection WebSocket |
+| DynamoDB Streams | Phát hiện ticket mới hoặc ticket được cập nhật |
+| Amazon S3 | Lưu tệp đính kèm |
+| Amazon SES | Gửi email xác nhận và cập nhật ticket |
+| Amazon CloudWatch | Lưu log, metric và hỗ trợ xử lý sự cố |
+| AWS IAM | Cấp quyền tối thiểu cho từng Lambda |
+
+Route 53 không nằm trong phạm vi triển khai hiện tại. Website sử dụng domain mặc định do AWS Amplify cung cấp.
 
 ## Cấu trúc project
 
 ```text
 .
-├── amplify.yml                         # Build settings cho Amplify Hosting
-├── aws/lambda/CampusSupportTicketService
-│   └── index.mjs                       # Lambda handler cho ticket API
-├── content/                            # Hugo content pages
-├── docs/
-│   └── amplify-deploy.md               # Hướng dẫn deploy Amplify
-├── layouts/                            # Hugo templates
-├── scripts/
-│   └── write-runtime-config.mjs        # Tạo static/js/config.js từ env vars
-├── static/css/styles.css               # UI styles
-├── static/js/app.js                    # Frontend logic
-├── static/js/config.js                 # Runtime config local mặc định
-└── hugo.toml                           # Hugo config
+|-- amplify.yml
+|-- aws/lambda/
+|   |-- CampusSupportTicketService/index.mjs
+|   |-- CampusSupportNotificationService/index.mjs
+|   `-- CampusSupportWebSocketService/index.mjs
+|-- content/
+|-- docs/
+|   |-- amplify-deploy.md
+|   `-- notification-phase1.md
+|-- layouts/
+|-- scripts/write-runtime-config.mjs
+|-- static/css/styles.css
+|-- static/js/app.js
+|-- static/js/config.js
+`-- hugo.toml
 ```
 
 ## Chạy local
 
+Yêu cầu máy đã cài Hugo và Node.js.
+
 ```powershell
+node scripts/write-runtime-config.mjs
 hugo server
 ```
 
-Sau đó mở:
+Truy cập `http://localhost:1313/`.
 
-```text
-http://localhost:1313/
-```
+> Cognito chỉ chuyển hướng về URL đã được khai báo trong App client. Nếu muốn đăng nhập khi chạy local, cần thêm URL localhost tương ứng vào Cognito callback và sign-out URLs.
 
-## Build local
+## Build production
 
 ```powershell
 node scripts/write-runtime-config.mjs
 hugo --minify
 ```
 
-Output nằm trong thư mục `public/`. Thư mục này được ignore vì Amplify sẽ tự build lại khi deploy.
+Website sau khi build nằm trong thư mục `public/`. AWS Amplify thực hiện lại hai lệnh này theo cấu hình trong `amplify.yml`.
 
-## Deploy frontend bằng Amplify
+## Biến môi trường Amplify
 
-1. Push source lên GitHub.
-2. Vào AWS Amplify -> Create new app -> Host web app.
-3. Chọn repository và branch `main`.
-4. Amplify sẽ đọc `amplify.yml`.
-5. Thêm environment variables:
+Khai báo các biến sau trong Amplify Hosting:
 
 ```text
 API_BASE_URL=https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com
+WEB_SOCKET_URL=wss://y9d2pszfs7.execute-api.ap-southeast-1.amazonaws.com/production/
 COGNITO_ENABLED=true
 COGNITO_DOMAIN=https://ap-southeast-1dlwufncru.auth.ap-southeast-1.amazoncognito.com
 COGNITO_CLIENT_ID=6b0npdra3clhdlpfen45iekr5l
@@ -81,52 +123,90 @@ COGNITO_REDIRECT_URI=
 COGNITO_LOGOUT_URI=
 ```
 
-6. Save and deploy.
+Khi `COGNITO_REDIRECT_URI` và `COGNITO_LOGOUT_URI` để trống, frontend sử dụng URL hiện tại của trang.
 
-Chi tiết xem thêm: `docs/amplify-deploy.md`.
+## Các Lambda chính
 
-## Luồng kiến trúc
+### CampusSupportTicketService
 
-```text
-User Browser
-  -> Amplify Hosting
-  -> API Gateway
-  -> Lambda
-  -> DynamoDB
+Xử lý các route:
 
-Attachment upload:
-  Lambda -> S3
+- `GET /tickets`
+- `POST /tickets`
+- `GET /tickets/{ticketId}`
+- `PATCH /tickets/{ticketId}`
+- `DELETE /tickets/{ticketId}` nếu route xóa đã được cấu hình trong API Gateway
 
-Monitoring:
-  Lambda/API Gateway -> CloudWatch Logs
-```
+Lambda này đọc nhóm Cognito từ JWT để kiểm tra quyền admin.
 
-Khi bật Cognito thật:
+### CampusSupportNotificationService
 
-```text
-User Browser
-  -> Cognito Hosted UI
-  -> API Gateway JWT Authorizer
-  -> Lambda
-```
+Được kích hoạt bởi DynamoDB Streams với chế độ `New and old images` để:
 
-## Tài khoản demo hiện tại
+- Gửi email xác nhận ticket mới.
+- Cảnh báo đội IT về ticket ưu tiên cao.
+- Gửi email khi trạng thái hoặc ghi chú xử lý thay đổi.
+- Đẩy sự kiện `ticket.updated` đến WebSocket của đúng người dùng.
+
+Các biến môi trường chính:
 
 ```text
-User:  student@campus.edu.vn / student123
-Admin: admin@campus.edu.vn   / admin123
+FROM_EMAIL
+IT_TEAM_EMAIL
+APP_BASE_URL
+NOTIFICATION_ENABLED=true
+CONNECTIONS_TABLE=CampusSupportConnections
+WEBSOCKET_MANAGEMENT_ENDPOINT=https://y9d2pszfs7.execute-api.ap-southeast-1.amazonaws.com/production
 ```
 
-Các tài khoản này chỉ phục vụ demo frontend khi `COGNITO_ENABLED=false`.
-## AWS production checklist
+### CampusSupportWebSocketService
 
-- Cognito user pool region: `ap-southeast-1`.
-- Cognito user pool ID: `ap-southeast-1_dLwufNCru`.
-- Cognito groups: `Users` for normal users, `Admins` for IT admins.
-- Cognito app client callback/sign-out URLs must include the Amplify root URL and `/admin/`.
-- Cognito post-confirmation Lambda trigger should add new sign-up users to group `Users`.
-- API Gateway JWT authorizer issuer: `https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_dLwufNCru`.
-- API Gateway JWT audience: `6b0npdra3clhdlpfen45iekr5l`.
-- API Gateway routes should include `GET /tickets`, `POST /tickets`, `GET /tickets/{ticketId}`, and `PATCH /tickets/{ticketId}`.
-- Lambda environment variable `AUTH_MODE` should be `cognito`.
-- Lambda role needs DynamoDB `PutItem`, `GetItem`, `Scan`, `UpdateItem`, and `DeleteItem` on the ticket table.
+Xử lý các route `$connect`, `$disconnect` và `$default`. Lambda xác minh Cognito ID token rồi lưu hoặc xóa `connectionId` trong bảng `CampusSupportConnections`.
+
+Các biến môi trường chính:
+
+```text
+COGNITO_APP_CLIENT_ID=6b0npdra3clhdlpfen45iekr5l
+COGNITO_ISSUER=https://cognito-idp.ap-southeast-1.amazonaws.com/ap-southeast-1_dLwufNCru
+CONNECTIONS_TABLE=CampusSupportConnections
+```
+
+## Kiểm thử thông báo thời gian thực
+
+1. Đăng nhập bằng tài khoản người dùng và giữ trang đang mở.
+2. Mở DevTools, chọn `Network` rồi chọn `WS`. Kết nối phải trả về HTTP `101`.
+3. Kiểm tra bảng `CampusSupportConnections`; phải có item chứa `connectionId` và email người dùng.
+4. Trong cửa sổ khác, đăng nhập admin và cập nhật ticket thuộc người dùng đó.
+5. Trang người dùng phải hiển thị thông báo và cập nhật ticket mà không cần tải lại.
+6. Nếu không hoạt động, kiểm tra CloudWatch logs của hai Lambda Notification và WebSocket.
+
+## Trạng thái Amazon SES
+
+SES hiện được cấu hình tại Region `ap-southeast-1`. Khi tài khoản còn ở Sandbox:
+
+- Địa chỉ gửi phải được xác minh.
+- Địa chỉ nhận cũng phải được xác minh.
+- Email có thể bị chuyển vào Spam khi dùng địa chỉ Gmail cá nhân làm người gửi.
+
+Để gửi email đến mọi người dùng thực tế, cần xác minh sending domain và yêu cầu AWS cấp SES production access.
+
+## Bảo mật và vận hành
+
+- Không lưu mật khẩu, access key hoặc secret key trong repository.
+- Cognito App client dành cho frontend không sử dụng client secret.
+- API Gateway HTTP API phải gắn JWT Authorizer vào các route cần bảo vệ.
+- Lambda chỉ được cấp các quyền IAM cần thiết trên đúng bảng, bucket và API.
+- S3 bucket không public; tệp được truy cập bằng URL ký trước có thời hạn.
+- CloudWatch log không nên ghi JWT, mật khẩu hoặc dữ liệu nhạy cảm.
+- Nên cấu hình thời gian lưu log và cảnh báo lỗi Lambda để kiểm soát chi phí.
+
+## Trạng thái triển khai
+
+- Frontend: AWS Amplify Hosting.
+- Authentication: Amazon Cognito.
+- Ticket API: API Gateway HTTP API và Lambda.
+- Database: Amazon DynamoDB.
+- Attachment: Amazon S3.
+- Email notification: DynamoDB Streams, Lambda và Amazon SES.
+- Real-time notification: API Gateway WebSocket API, Lambda và DynamoDB connection table.
+- Custom domain: chưa sử dụng.
