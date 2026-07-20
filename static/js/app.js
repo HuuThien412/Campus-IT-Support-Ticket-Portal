@@ -338,9 +338,16 @@ function connectNotificationSocket() {
 
   notificationSocket.addEventListener("open", () => {
     notificationReconnectAttempt = 0;
+    console.info("Đã kết nối dịch vụ thông báo thời gian thực.");
+
+    // Reconcile once after reconnecting so an event missed while offline is not lost.
+    if (getSession()?.role === "admin") {
+      fetchTicketsFromApi();
+    }
   });
   notificationSocket.addEventListener("message", handleRealtimeMessage);
-  notificationSocket.addEventListener("close", () => {
+  notificationSocket.addEventListener("close", (event) => {
+    console.info("Kết nối thông báo đã đóng.", event.code, event.reason || "");
     notificationSocket = null;
     scheduleNotificationReconnect();
   });
@@ -1659,8 +1666,6 @@ if (form) {
     }
   });
 }
-connectNotificationSocket();
-
 ticketLookupButton?.addEventListener("click", lookupTicketByCode);
 
 ticketLookupInput?.addEventListener("keydown", (event) => {
@@ -1766,8 +1771,15 @@ window.addEventListener("focus", renderTickets);
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     renderTickets();
+    connectNotificationSocket();
+
+    if (getSession()?.role === "admin") {
+      fetchTicketsFromApi();
+    }
   }
 });
+
+window.addEventListener("online", connectNotificationSocket);
 
 window.addEventListener("hashchange", () => {
   if (location.hash === "#admin") {
@@ -1790,6 +1802,7 @@ const currentSession = getSession();
 const initialView = cognitoRedirectView || (currentSession?.role === "admin" || location.hash === "#admin" || document.body.dataset.initialView === "admin" ? "admin" : "user");
 renderSession();
 showAppView(initialView, { updateAddress: false });
+connectNotificationSocket();
 activateTicketTab("basic");
 renderTickets();
 updateStorageStatus();
