@@ -279,6 +279,20 @@ function handleRealtimeMessage(event) {
   try {
     const payload = JSON.parse(event.data);
 
+    if (payload.type === "ticket.created") {
+      const session = getSession();
+      if (session?.role !== "admin") {
+        return;
+      }
+
+      const ticketId = payload.ticketId || payload.ticket?.ticketId || payload.ticket?.id;
+      const priority = payload.ticket?.priority;
+      const priorityText = priority ? ` (${priority})` : "";
+      showRealtimeNotification(`Có ticket mới ${ticketId || ""}${priorityText}.`, "success");
+      fetchTicketsFromApi();
+      return;
+    }
+
     if (payload.type !== "ticket.updated") {
       return;
     }
@@ -1779,7 +1793,3 @@ showAppView(initialView, { updateAddress: false });
 activateTicketTab("basic");
 renderTickets();
 updateStorageStatus();
-
-
-
-

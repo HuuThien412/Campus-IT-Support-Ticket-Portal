@@ -103,6 +103,72 @@ const deleteStaleConnection = async (connectionId) => {
   }));
 };
 
+const postToConnections = async (connections, payload) => {
+  if (!connections?.length) return;
+
+  const client = new ApiGatewayManagementApiClient({
+    endpoint: WEBSOCKET_MANAGEMENT_ENDPOINT
+  });
+  const data = Buffer.from(JSON.stringify(payload));
+
+  await Promise.all(connections.map(async ({ connectionId }) => {
+    try {
+      await client.send(new PostToConnectionCommand({
+        ConnectionId: connectionId,
+        Data: data
+      }));
+    } catch (error) {
+      if (error.$metadata?.httpStatusCode === 410 || error.name === "GoneException") {
+        await deleteStaleConnection(connectionId);
+        return;
+      }
+      throw error;
+    }
+  }));
+};
+
+const pushTicketCreated = async (ticket) => {
+  if (!WEBSOCKET_MANAGEMENT_ENDPOINT) {
+    console.info("Skipping ticket.created because the WebSocket endpoint is missing.", {
+      ticketId: ticket.ticketId
+    });
+    return;
+  }
+
+  const result = await dynamo.send(new ScanCommand({
+    TableName: CONNECTIONS_TABLE,
+    FilterExpression: "#role = :role",
+    ExpressionAttributeNames: { "#role": "role" },
+    ExpressionAttributeValues: { ":role": "admin" },
+    ProjectionExpression: "connectionId"
+  }));
+
+  if (!result.Items?.length) {
+    console.info("No active Admin WebSocket connection found for the new ticket.", {
+      ticketId: ticket.ticketId
+    });
+    return;
+  }
+
+  const createdAt = ticket.createdAt || new Date().toISOString();
+  await postToConnections(result.Items, {
+    type: "ticket.created",
+    ticketId: ticket.ticketId,
+    createdAt,
+    ticket: {
+      ticketId: ticket.ticketId,
+      fullName: ticket.fullName,
+      email: ticket.email,
+      category: ticket.category,
+      priority: ticket.priority,
+      status: ticket.status,
+      location: ticket.location,
+      description: ticket.description,
+      createdAt
+    }
+  });
+};
+
 const pushTicketUpdated = async (oldTicket, newTicket) => {
   if (!WEBSOCKET_MANAGEMENT_ENDPOINT || !newTicket.email) {
     console.info("Skipping real-time notification because its configuration is incomplete.", {
@@ -128,11 +194,8 @@ const pushTicketUpdated = async (oldTicket, newTicket) => {
     return;
   }
 
-  const client = new ApiGatewayManagementApiClient({
-    endpoint: WEBSOCKET_MANAGEMENT_ENDPOINT
-  });
   const updatedAt = newTicket.updatedAt || new Date().toISOString();
-  const data = Buffer.from(JSON.stringify({
+  await postToConnections(result.Items, {
     type: "ticket.updated",
     ticketId: newTicket.ticketId,
     status: newTicket.status,
@@ -147,23 +210,7 @@ const pushTicketUpdated = async (oldTicket, newTicket) => {
       resolutionNote: newTicket.resolutionNote || "",
       updatedAt
     }
-  }));
-
-  await Promise.all(result.Items.map(async ({ connectionId }) => {
-    try {
-      await client.send(new PostToConnectionCommand({
-        ConnectionId: connectionId,
-        Data: data
-      }));
-    } catch (error) {
-      if (error.$metadata?.httpStatusCode === 410 || error.name === "GoneException") {
-        await deleteStaleConnection(connectionId);
-        return;
-      }
-
-      throw error;
-    }
-  }));
+  });
 };
 
 const sendTicketCreatedEmail = (ticket) =>
@@ -229,11 +276,16 @@ const sendTicketUpdatedEmail = (oldTicket, newTicket) =>
   });
 
 const handleInsert = async (ticket) => {
-  await sendTicketCreatedEmail(ticket);
+  const tasks = [
+    sendTicketCreatedEmail(ticket),
+    pushTicketCreated(ticket)
+  ];
 
   if (isHighPriority(ticket) && IT_TEAM_EMAIL) {
-    await sendHighPriorityEmail(ticket);
+    tasks.push(sendHighPriorityEmail(ticket));
   }
+
+  await Promise.all(tasks);
 };
 
 const handleModify = async (oldTicket, newTicket) => {
@@ -277,4 +329,3 @@ export const handler = async (event) => {
     batchItemFailures: failures
   };
 };
-
