@@ -1,6 +1,7 @@
 const STORAGE_KEY = "campus-it-support-tickets";
 const SESSION_KEY = "campus-it-support-session";
 const LOCAL_USERS_KEY = "campus-it-support-local-users";
+const MY_TICKETS_BACKUP_KEY = "campus-it-support-my-ticket-summaries";
 const APP_CONFIG = window.CAMPUS_SUPPORT_CONFIG || {};
 const API_BASE_URL = APP_CONFIG.apiBaseUrl || "https://a74geamhtb.execute-api.ap-southeast-1.amazonaws.com";
 const WEB_SOCKET_URL = APP_CONFIG.webSocketUrl || "";
@@ -94,6 +95,10 @@ const signupStatus = document.querySelector("#signupStatus");
 const sessionChip = document.querySelector("#sessionChip");
 const fullNameInput = document.querySelector("#fullName");
 const requesterEmailInput = document.querySelector("#email");
+const refreshMyTickets = document.querySelector("#refreshMyTickets");
+const myTicketsStatus = document.querySelector("#myTicketsStatus");
+const myTicketsList = document.querySelector("#myTicketsList");
+const myTicketsEmpty = document.querySelector("#myTicketsEmpty");
 
 const STATUS_LABELS = {
   Open: "Mới",
@@ -109,6 +114,8 @@ let notificationReconnectAttempt = 0;
 let notificationClosedByApp = false;
 
 let ticketCache = [];
+let myTicketHistory = [];
+let myTicketHistoryRequest = 0;
 
 const BUILT_IN_ACCOUNTS = {
   user: {
@@ -176,6 +183,70 @@ function normalizeTicket(ticket) {
   };
 }
 
+function summarizeMyTicket(ticket) {
+  const normalized = normalizeTicket(ticket || {});
+  const now = new Date().toISOString();
+
+  return {
+    id: normalized.id,
+    ticketId: normalized.id,
+    category: normalized.category || "Khác",
+    priority: normalized.priority || "Medium",
+    status: normalized.status || "Open",
+    createdAt: normalized.createdAt || normalized.updatedAt || now,
+    updatedAt: normalized.updatedAt || normalized.createdAt || now,
+    resolutionNote: normalized.resolutionNote || "",
+    email: normalized.email || "",
+    ownerSub: normalized.ownerSub || ""
+  };
+}
+
+function getHistoryOwnerKey(session = getSession()) {
+  return String(session?.sub || session?.email || "").trim().toLowerCase();
+}
+
+function mergeMyTicketHistory(...collections) {
+  const merged = new Map();
+
+  collections.flat().filter(Boolean).forEach((item) => {
+    const ticket = summarizeMyTicket(item);
+    if (!ticket.id) return;
+
+    const current = merged.get(ticket.id);
+    if (!current || new Date(ticket.updatedAt) >= new Date(current.updatedAt)) {
+      merged.set(ticket.id, ticket);
+    }
+  });
+
+  return [...merged.values()].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function readMyTicketBackup(session = getSession()) {
+  const ownerKey = getHistoryOwnerKey(session);
+  if (!ownerKey) return [];
+
+  try {
+    const backups = JSON.parse(localStorage.getItem(MY_TICKETS_BACKUP_KEY)) || {};
+    return Array.isArray(backups[ownerKey]) ? backups[ownerKey].map(normalizeTicket) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeMyTicketBackup(items, session = getSession()) {
+  const ownerKey = getHistoryOwnerKey(session);
+  if (!ownerKey) return;
+
+  let backups = {};
+  try {
+    backups = JSON.parse(localStorage.getItem(MY_TICKETS_BACKUP_KEY)) || {};
+  } catch {
+    backups = {};
+  }
+
+  backups[ownerKey] = items.slice(0, 50).map(summarizeMyTicket);
+  localStorage.setItem(MY_TICKETS_BACKUP_KEY, JSON.stringify(backups));
+}
 function getLocalUsers() {
   try {
     return JSON.parse(localStorage.getItem(LOCAL_USERS_KEY)) || [];
@@ -302,6 +373,9 @@ function handleRealtimeMessage(event) {
     const statusText = status ? ` sang ${statusLabel(status)}` : "";
     showRealtimeNotification(`Ticket ${ticketId || "c\u1ee7a b\u1ea1n"} \u0111\u00e3 \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt${statusText}.`, "success");
     refreshTicketFromRealtime(ticketId);
+    if (getSession()?.role === "user") {
+      fetchMyTicketHistory();
+    }
   } catch (error) {
     console.error("Th\u00f4ng b\u00e1o WebSocket kh\u00f4ng h\u1ee3p l\u1ec7:", error);
   }
@@ -343,6 +417,8 @@ function connectNotificationSocket() {
     // Reconcile once after reconnecting so an event missed while offline is not lost.
     if (getSession()?.role === "admin") {
       fetchTicketsFromApi();
+    } else if (getSession()?.role === "user") {
+      fetchMyTicketHistory();
     }
   });
   notificationSocket.addEventListener("message", handleRealtimeMessage);
@@ -493,6 +569,7 @@ function handleCognitoCallback() {
     name: claims.name || email || (role === "admin" ? "Admin" : "User"),
     email,
     provider: "cognito",
+    sub: claims.sub || "",
     accessToken,
     idToken,
     expiresAt: Date.now() + expiresIn * 1000,
@@ -634,6 +711,8 @@ function showAppView(viewName, options = {}) {
   if (nextView === "admin") {
     renderTickets();
     fetchTicketsFromApi();
+  } else {
+    fetchMyTicketHistory();
   }
 
   if (options.updateAddress !== false) {
@@ -1019,7 +1098,8 @@ async function createTicketRemote(payload) {
   return {
     ok: true,
     ticketId: ticket.id,
-    message: `Đã tạo ticket ${ticket.id} trên AWS. Vui lòng lưu lại mã này để tiện theo dõi.`
+    ticket,
+    message: `Đã tạo ticket ${ticket.id} trên AWS. Ticket đã được lưu vào lịch sử của bạn.`
   };
 }
 
@@ -1084,6 +1164,83 @@ function statusLabel(value) {
   return STATUS_LABELS[value] || value || "Mới";
 }
 
+function isTicketOwnedBySession(ticket, session = getSession()) {
+  if (!session || session.role !== "user") return false;
+  const ownerSub = String(ticket?.ownerSub || "");
+  const email = String(ticket?.email || "").trim().toLowerCase();
+  return Boolean((session.sub && ownerSub === session.sub) || (session.email && email === session.email.toLowerCase()));
+}
+
+function renderMyTicketHistory(items = myTicketHistory) {
+  if (!myTicketsList || !myTicketsEmpty) return;
+
+  const session = getSession();
+  const visibleItems = session?.role === "user" ? items : [];
+  myTicketsEmpty.hidden = visibleItems.length > 0;
+  myTicketsList.hidden = visibleItems.length === 0;
+  myTicketsList.innerHTML = visibleItems.map((ticket) => {
+    const statusKey = String(ticket.status || "Open").toLowerCase().replace(/\s+/g, "-");
+    return `
+      <article class="my-ticket-row">
+        <div class="my-ticket-identity">
+          <span>Mã ticket</span>
+          <strong>${escapeHtml(ticket.id)}</strong>
+        </div>
+        <div class="my-ticket-meta">
+          <strong>${escapeHtml(ticket.category || "Khác")}</strong>
+          <span>Ưu tiên ${escapeHtml(ticket.priority || "Medium")}</span>
+        </div>
+        <div class="my-ticket-progress">
+          <span class="my-ticket-status" data-status="${escapeHtml(statusKey)}">${escapeHtml(statusLabel(ticket.status))}</span>
+          <small>Cập nhật ${escapeHtml(formatTime(ticket.updatedAt || ticket.createdAt))}</small>
+        </div>
+        <div class="my-ticket-actions">
+          <button class="icon-button" type="button" data-history-copy="${escapeHtml(ticket.id)}" aria-label="Sao chép mã ${escapeHtml(ticket.id)}" title="Sao chép mã ticket">
+            <i class="ti ti-copy" aria-hidden="true"></i>
+          </button>
+          <button class="button button-outline history-view-button" type="button" data-history-view="${escapeHtml(ticket.id)}">
+            <i class="ti ti-search" aria-hidden="true"></i>
+            Xem
+          </button>
+        </div>
+      </article>`;
+  }).join("");
+}
+
+function rememberMyTicket(ticket, session = getSession()) {
+  if (!ticket?.id || !isTicketOwnedBySession(ticket, session)) return;
+  myTicketHistory = mergeMyTicketHistory([ticket], myTicketHistory, readMyTicketBackup(session));
+  writeMyTicketBackup(myTicketHistory, session);
+  renderMyTicketHistory();
+}
+
+async function fetchMyTicketHistory({ showStatus = false } = {}) {
+  const session = getSession();
+  const backup = readMyTicketBackup(session);
+  myTicketHistory = mergeMyTicketHistory(backup);
+  renderMyTicketHistory();
+
+  if (session?.role !== "user") {
+    setStatus(myTicketsStatus, "Đăng nhập tài khoản người dùng để xem lịch sử ticket.", "");
+    return;
+  }
+
+  const requestId = ++myTicketHistoryRequest;
+  if (showStatus) setStatus(myTicketsStatus, "Đang đồng bộ lịch sử từ AWS...", "");
+
+  try {
+    const data = await apiRequest("/tickets");
+    if (requestId !== myTicketHistoryRequest) return;
+    myTicketHistory = mergeMyTicketHistory(data.tickets || [], backup);
+    writeMyTicketBackup(myTicketHistory, session);
+    renderMyTicketHistory();
+    setStatus(myTicketsStatus, myTicketHistory.length ? `Đã đồng bộ ${myTicketHistory.length} ticket của bạn.` : "Bạn chưa gửi ticket nào.", myTicketHistory.length ? "success" : "");
+  } catch (error) {
+    if (requestId !== myTicketHistoryRequest) return;
+    renderMyTicketHistory();
+    setStatus(myTicketsStatus, backup.length ? "Đang hiển thị lịch sử đã lưu trên thiết bị. Chưa thể đồng bộ với AWS." : `Không thể tải lịch sử: ${error.message}`, backup.length ? "" : "error");
+  }
+}
 function statusOption(currentStatus, value) {
   return `<option value="${value}" ${currentStatus === value ? "selected" : ""}>${statusLabel(value)}</option>`;
 }
@@ -1479,23 +1636,55 @@ async function seedTicketsRemote() {
   }
 }
 
-function addClickFeedback(element) {
+const clickFeedbackTimers = new WeakMap();
+
+function addClickFeedback(element, clientX, clientY) {
+  const bounds = element.getBoundingClientRect();
+  const pressX = Number.isFinite(clientX) ? clientX - bounds.left : bounds.width / 2;
+  const pressY = Number.isFinite(clientY) ? clientY - bounds.top : bounds.height / 2;
+  const previousTimer = clickFeedbackTimers.get(element);
+
+  if (previousTimer) {
+    window.clearTimeout(previousTimer);
+  }
+
+  element.style.setProperty("--press-x", `${pressX}px`);
+  element.style.setProperty("--press-y", `${pressY}px`);
   element.classList.remove("is-clicked");
   void element.offsetWidth;
   element.classList.add("is-clicked");
-  window.setTimeout(() => element.classList.remove("is-clicked"), 220);
+
+  const timer = window.setTimeout(() => {
+    element.classList.remove("is-clicked");
+    clickFeedbackTimers.delete(element);
+  }, 440);
+
+  clickFeedbackTimers.set(element, timer);
 }
 
 document.addEventListener("pointerdown", (event) => {
   const target = event.target.closest("button, a.button");
 
-  if (!target || target.disabled) {
+  if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") {
+    return;
+  }
+
+  addClickFeedback(target, event.clientX, event.clientY);
+});
+
+document.addEventListener("click", (event) => {
+  if (event.detail !== 0) {
+    return;
+  }
+
+  const target = event.target.closest("button, a.button");
+
+  if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") {
     return;
   }
 
   addClickFeedback(target);
 });
-
 
 loginButton?.addEventListener("click", () => {
   const activeView = document.querySelector("[data-app-view]:not([hidden])")?.dataset.appView;
@@ -1652,6 +1841,7 @@ if (form) {
     setStatus(statusEl, result.message, result.ok ? "success" : "error");
 
     if (result.ok) {
+      rememberMyTicket(result.ticket, session);
       if (createdTicketId && ticketConfirmation) {
         createdTicketId.textContent = `Mã ticket của bạn: ${result.ticketId}`;
         ticketConfirmation.hidden = false;
@@ -1672,6 +1862,36 @@ ticketLookupInput?.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
     lookupTicketByCode();
+  }
+});
+
+refreshMyTickets?.addEventListener("click", () => {
+  refreshMyTickets.disabled = true;
+  fetchMyTicketHistory({ showStatus: true }).finally(() => {
+    refreshMyTickets.disabled = false;
+  });
+});
+
+myTicketsList?.addEventListener("click", async (event) => {
+  const copyButton = event.target.closest("[data-history-copy]");
+  const viewButton = event.target.closest("[data-history-view]");
+
+  if (copyButton) {
+    const ticketId = copyButton.dataset.historyCopy;
+    try {
+      await navigator.clipboard.writeText(ticketId);
+      setStatus(myTicketsStatus, `Đã sao chép mã ${ticketId}.`, "success");
+    } catch {
+      setStatus(myTicketsStatus, `Mã ticket: ${ticketId}`, "");
+    }
+    return;
+  }
+
+  if (viewButton) {
+    const ticketId = viewButton.dataset.historyView;
+    if (ticketLookupInput) ticketLookupInput.value = ticketId;
+    ticketLookupInput?.scrollIntoView({ behavior: "smooth", block: "center" });
+    await lookupTicketByCode();
   }
 });
 
@@ -1697,7 +1917,6 @@ if (tableBody) {
       select.disabled = false;
     }
     return;
-    setStatus(adminStatusEl, `Đã cập nhật trạng thái ${select.dataset.ticketId} thành ${statusLabel(select.value)}.`, "success");
   });
 
   tableBody.addEventListener("click", async (event) => {
@@ -1764,9 +1983,17 @@ window.addEventListener("storage", (event) => {
     renderTickets();
     setStatus(adminStatusEl, "Đã nhận dữ liệu ticket mới từ tab khác.", "success");
   }
+
+  if (event.key === MY_TICKETS_BACKUP_KEY) {
+    myTicketHistory = mergeMyTicketHistory(readMyTicketBackup());
+    renderMyTicketHistory();
+  }
 });
 
-window.addEventListener("focus", renderTickets);
+window.addEventListener("focus", () => {
+  renderTickets();
+  if (getSession()?.role === "user") fetchMyTicketHistory();
+});
 
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
@@ -1775,6 +2002,8 @@ document.addEventListener("visibilitychange", () => {
 
     if (getSession()?.role === "admin") {
       fetchTicketsFromApi();
+    } else if (getSession()?.role === "user") {
+      fetchMyTicketHistory();
     }
   }
 });

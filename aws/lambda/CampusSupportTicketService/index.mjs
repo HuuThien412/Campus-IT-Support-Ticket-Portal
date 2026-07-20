@@ -103,7 +103,8 @@ const getCaller = (event) => {
     claims,
     groups,
     role: groups.includes("Admins") || groups.includes("Admin") ? "admin" : "user",
-    email: claims.email || "",
+    sub: claims.sub || "",
+    email: String(claims.email || "").trim().toLowerCase(),
     isAuthenticated: Boolean(claims.sub)
   };
 };
@@ -186,15 +187,20 @@ export const handler = async (event) => {
         return authError;
       }
 
+      const caller = getCaller(event);
       const payload = JSON.parse(event.body || "{}");
+      const requesterEmail = AUTH_MODE === "cognito" && caller.role !== "admin"
+        ? caller.email
+        : String(payload.email || caller.email || "").trim().toLowerCase();
       const ticketId = createTicketId();
       const now = new Date().toISOString();
       const attachment = await uploadAttachment(ticketId, payload.attachment);
 
       const ticket = {
         ticketId,
+        ownerSub: caller.sub || "",
         fullName: payload.fullName || "",
-        email: payload.email || "",
+        email: requesterEmail,
         category: payload.category || "",
         priority: payload.priority || "Medium",
         location: payload.location || "",
@@ -237,7 +243,11 @@ export const handler = async (event) => {
         });
       }
 
-      if (AUTH_MODE === "cognito" && caller.role !== "admin" && caller.email && result.Item.email !== caller.email) {
+      const ownerSubMatches = caller.sub && result.Item.ownerSub === caller.sub;
+      const emailMatches = caller.email
+        && String(result.Item.email || "").trim().toLowerCase() === caller.email;
+
+      if (AUTH_MODE === "cognito" && caller.role !== "admin" && !ownerSubMatches && !emailMatches) {
         return response(403, {
           ok: false,
           message: "You can only view your own ticket"
@@ -251,14 +261,33 @@ export const handler = async (event) => {
     }
 
     if (method === "GET" && path.endsWith("/tickets")) {
-      const authError = requireGroups(event, ["Admins", "Admin"]);
+      const authError = requireGroups(event, ["Users", "User", "Admins", "Admin"]);
       if (authError) {
         return authError;
       }
 
-      const result = await dynamo.send(new ScanCommand({
-        TableName: TABLE_NAME
-      }));
+      const caller = getCaller(event);
+      const scanInput = { TableName: TABLE_NAME };
+
+      if (AUTH_MODE === "cognito" && caller.role !== "admin") {
+        if (caller.sub && caller.email) {
+          scanInput.FilterExpression = "ownerSub = :ownerSub OR #email = :email";
+          scanInput.ExpressionAttributeNames = { "#email": "email" };
+          scanInput.ExpressionAttributeValues = {
+            ":ownerSub": caller.sub,
+            ":email": caller.email
+          };
+        } else if (caller.sub) {
+          scanInput.FilterExpression = "ownerSub = :ownerSub";
+          scanInput.ExpressionAttributeValues = { ":ownerSub": caller.sub };
+        } else {
+          scanInput.FilterExpression = "#email = :email";
+          scanInput.ExpressionAttributeNames = { "#email": "email" };
+          scanInput.ExpressionAttributeValues = { ":email": caller.email };
+        }
+      }
+
+      const result = await dynamo.send(new ScanCommand(scanInput));
 
       const tickets = (result.Items || []).sort((a, b) =>
         new Date(b.createdAt) - new Date(a.createdAt)

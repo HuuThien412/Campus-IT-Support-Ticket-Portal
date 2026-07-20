@@ -6,7 +6,8 @@
   <meta name="description" content="{{ .Site.Params.description }}">
   <title>{{ .Site.Title }}</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
-  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260709-unified-header1">
+  <link rel="stylesheet" href="{{ "css/styles.css" | relURL }}?v=20260720-deeper-contrast3">
+  <link rel="stylesheet" href="{{ "css/ui-system.css" | relURL }}?v=20260721-product-pass1">
 </head>
 <body data-initial-view="{{ .InitialView }}">
   <header class="site-header" aria-label="Điều hướng chính">
@@ -121,30 +122,17 @@
           <div class="hero-support-stats" aria-label="Tình trạng hỗ trợ">
             <span class="hero-status-ok"><i class="ti ti-circle-check-filled" aria-hidden="true"></i>Hệ thống hoạt động bình thường</span>
             <span class="hero-status-fast"><i class="ti ti-bolt-filled" aria-hidden="true"></i>Phản hồi trung bình: 4 giờ</span>
-            <span class="hero-status-rate"><i class="ti ti-checks" aria-hidden="true"></i>94% ticket được giải quyết</span>
-          </div>
-          <div class="hero-quick-list" aria-label="Nhóm hỗ trợ phổ biến">
-            <span><i class="ti ti-wifi" aria-hidden="true"></i>WiFi</span>
-            <span><i class="ti ti-user-shield" aria-hidden="true"></i>Tài khoản</span>
-            <span><i class="ti ti-apps" aria-hidden="true"></i>Phần mềm</span>
-            <span><i class="ti ti-device-laptop" aria-hidden="true"></i>Thiết bị</span>
           </div>
         </div>
 
-        <aside class="stat-card" aria-label="Thời gian phản hồi mục tiêu">
-          <span>Thời gian phản hồi mục tiêu</span>
-          <strong>24 giờ</strong>
-          <p>Ticket được lưu để bộ phận IT có thể theo dõi và cập nhật trạng thái.</p>
-          <div class="stat-extra-grid" aria-label="Chỉ số hỗ trợ bổ sung">
-            <div>
-              <span>Tỉ lệ giải quyết</span>
-              <strong>94%</strong>
-            </div>
-            <div>
-              <span>Ticket hôm nay</span>
-              <strong>3</strong>
-            </div>
-          </div>
+        <aside class="stat-card service-summary" aria-label="Quy trình hỗ trợ">
+          <span>Trung tâm hỗ trợ</span>
+          <strong>Một nơi để gửi và theo dõi yêu cầu</strong>
+          <ul class="service-summary-list">
+            <li><i class="ti ti-ticket" aria-hidden="true"></i><span>Nhận mã ticket ngay sau khi gửi</span></li>
+            <li><i class="ti ti-history" aria-hidden="true"></i><span>Lưu lịch sử theo tài khoản đăng nhập</span></li>
+            <li><i class="ti ti-bell-ringing" aria-hidden="true"></i><span>Cập nhật trạng thái theo thời gian thực</span></li>
+          </ul>
         </aside>
       </section>
 
@@ -234,6 +222,27 @@
               <span id="createdTicketId"></span>
             </div>
           </form>
+
+          <section class="card my-tickets-card" aria-labelledby="myTicketsTitle">
+            <div class="my-tickets-header">
+              <div class="section-heading compact">
+                <p class="section-label">Lịch sử cá nhân</p>
+                <h2 id="myTicketsTitle">Yêu cầu của tôi</h2>
+                <p>Xem lại mã ticket và trạng thái mới nhất của các yêu cầu gắn với tài khoản đang đăng nhập.</p>
+              </div>
+              <button class="icon-button history-refresh" id="refreshMyTickets" type="button" aria-label="Làm mới lịch sử ticket" title="Làm mới lịch sử">
+                <i class="ti ti-refresh" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <p class="form-status" id="myTicketsStatus" role="status" aria-live="polite"></p>
+            <div class="my-tickets-list" id="myTicketsList"></div>
+            <div class="my-tickets-empty" id="myTicketsEmpty">
+              <i class="ti ti-history" aria-hidden="true"></i>
+              <strong>Chưa có yêu cầu nào</strong>
+              <span>Ticket mới gửi sẽ xuất hiện tại đây và vẫn còn sau khi tải lại trang.</span>
+            </div>
+          </section>
 
           <section class="card ticket-lookup-card" aria-labelledby="ticketLookupTitle">
             <div class="section-heading compact">
@@ -394,7 +403,7 @@
               <i class="ti ti-refresh" aria-hidden="true"></i>
               Làm mới
             </button>
-            <button class="button button-primary" id="seedData" type="button">
+            <button class="button button-primary" id="seedData" type="button" hidden>
               <i class="ti ti-database-plus" aria-hidden="true"></i>
               Tạo dữ liệu mẫu
             </button>
@@ -448,7 +457,8 @@
           </label>
 
           <button class="button button-outline reset-filter" id="resetFilters" type="button">
-            Reset
+            <i class="ti ti-filter-off" aria-hidden="true"></i>
+            Đặt lại
           </button>
         </div>
 
@@ -480,7 +490,9 @@
               <p class="section-label">Chi tiết ticket</p>
               <h3 id="detailTicketId">Chọn một ticket</h3>
             </div>
-            <button class="button button-outline" id="closeTicketDetail" type="button">Đóng</button>
+            <button class="icon-button" id="closeTicketDetail" type="button" aria-label="Đóng chi tiết ticket" title="Đóng">
+              <i class="ti ti-x" aria-hidden="true"></i>
+            </button>
           </div>
 
           <dl class="detail-grid">
@@ -559,9 +571,7 @@
     </main>
   </div>
 
-  <script src="{{ "js/config.js" | relURL }}?v=20260709-unified-header1"></script>
-  <script src="{{ "js/app.js" | relURL }}?v=20260709-unified-header1"></script>
+  <script src="{{ "js/config.js" | relURL }}?v=20260720-deeper-contrast3"></script>
+  <script src="{{ "js/app.js" | relURL }}?v=20260720-deeper-contrast3"></script>
 </body>
 </html>
-
-
