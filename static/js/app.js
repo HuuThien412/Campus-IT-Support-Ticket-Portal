@@ -687,9 +687,11 @@ function renderSession() {
     return;
   }
 
-  const roleLabel = session.role === "admin" ? "Admin" : "User";
+  const sessionLabel = session.role === "admin"
+    ? `Admin: ${session.email}`
+    : session.email;
   sessionChip.classList.add(session.role === "admin" ? "is-admin" : "is-user");
-  sessionChip.innerHTML = `<i class="ti ti-shield-check" aria-hidden="true"></i> ${roleLabel}: ${escapeHtml(session.email)}`;
+  sessionChip.innerHTML = `<i class="ti ti-shield-check" aria-hidden="true"></i> ${escapeHtml(sessionLabel)}`;
   loginButton.hidden = true;
   signupButton.hidden = true;
   logoutButton.hidden = false;
